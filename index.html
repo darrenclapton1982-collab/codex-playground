@@ -30,19 +30,20 @@
 
         <section class="section alt tab-panel" id="games" role="tabpanel" aria-labelledby="tab-games" tabindex="0">
             <div class="container game-card">
-                <h2>Orb Hopper</h2>
-                <p>Tap the Start button, then use the arrow keys (or WASD) to glide around the grid. Scoop up as many glowing orbs as you can before the timer hits zero.</p>
+                <h2>Space Invaders Mini</h2>
+                <p>Press Start, slide with the arrow keys or A/D, and tap the space bar to launch plasma bolts. Clear the swarm before they reach the ground.</p>
 
                 <div class="game-wrapper">
-                    <canvas id="game-canvas" width="480" height="360" aria-label="Orb Hopper playfield"></canvas>
+                    <canvas id="game-canvas" width="520" height="420" aria-label="Space Invaders playfield"></canvas>
                     <div class="hud" aria-live="polite">
                         <span class="hud-item"><strong id="score-value">0</strong> pts</span>
-                        <span class="hud-item"><strong id="timer-value">30</strong> s</span>
+                        <span class="hud-item"><strong id="lives-value">3</strong> lives</span>
+                        <span class="hud-item"><strong id="wave-value">1</strong> wave</span>
                     </div>
                     <button id="start-game" type="button" class="start-button">Start Game</button>
                 </div>
 
-                <p id="status-message" class="status" role="status" aria-live="polite">Ready when you are!</p>
+                <p id="status-message" class="status" role="status" aria-live="polite">Squadron standing by.</p>
             </div>
         </section>
     </main>

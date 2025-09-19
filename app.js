@@ -29,182 +29,248 @@ activateTab("get-started");
 
 const canvas = document.getElementById("game-canvas");
 if (canvas) {
-    initOrbHopper(canvas);
+    initSpaceInvaders(canvas);
 } else {
-    console.warn("Orb Hopper setup skipped: canvas element not found.");
+    console.warn("Space Invaders setup skipped: canvas element not found.");
 }
 
-function initOrbHopper(canvas) {
+function initSpaceInvaders(canvas) {
     const ctx = canvas.getContext("2d");
     const width = canvas.width;
     const height = canvas.height;
     const startButton = document.getElementById("start-game");
     const scoreValue = document.getElementById("score-value");
-    const timerValue = document.getElementById("timer-value");
+    const livesValue = document.getElementById("lives-value");
+    const waveValue = document.getElementById("wave-value");
     const statusMessage = document.getElementById("status-message");
 
-    if (!ctx || !startButton || !scoreValue || !timerValue || !statusMessage) {
-        console.warn("Orb Hopper setup incomplete: required elements missing.");
+    if (!ctx || !startButton || !scoreValue || !livesValue || !waveValue || !statusMessage) {
+        console.warn("Space Invaders setup incomplete: required elements missing.");
         return;
     }
 
-    const player = {
-        x: width / 2,
-        y: height / 2,
-        size: 26,
-        speed: 180,
-    };
-
-    const orb = {
-        x: 0,
-        y: 0,
-        radius: 14,
-    };
+    const stars = Array.from({ length: 70 }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        r: Math.random() * 1.4 + 0.4,
+        a: Math.random() * 0.4 + 0.4,
+    }));
 
     const keys = new Set();
-    let lastTimestamp = 0;
-    let score = 0;
-    let timer = 30;
+    const player = {
+        x: width / 2 - 22,
+        y: height - 60,
+        width: 44,
+        height: 20,
+        speed: 260,
+    };
+
+    let invaders = [];
+    let invaderDirection = 1;
+    let invaderSpeed = 40;
+    const invaderDrop = 28;
+
+    let playerShots = [];
+    let enemyShots = [];
+
     let running = false;
+    let score = 0;
+    let lives = 3;
+    let wave = 1;
+    let playerCooldown = 0;
+    let enemyFireTimer = 0;
+    let enemyFireInterval = 1.4;
+    let lastTimestamp = 0;
 
     const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
-    const spawnOrb = () => {
-        const margin = orb.radius + 10;
-        orb.x = Math.random() * (width - margin * 2) + margin;
-        orb.y = Math.random() * (height - margin * 2) + margin;
-    };
+    const intersects = (a, b) =>
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y;
 
-    const updateScore = () => {
+    const updateHud = () => {
         scoreValue.textContent = String(score);
-    };
-
-    const updateTimer = () => {
-        timerValue.textContent = String(Math.ceil(timer));
+        livesValue.textContent = String(lives);
+        waveValue.textContent = String(wave);
     };
 
     const drawBackground = () => {
-        ctx.save();
-        const gradient = ctx.createLinearGradient(0, 0, width, height);
-        gradient.addColorStop(0, "#0c7b93");
-        gradient.addColorStop(1, "#095a6a");
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, "#03132a");
+        gradient.addColorStop(1, "#050b19");
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
 
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-        ctx.lineWidth = 1;
-        const gridSize = 40;
-        for (let x = gridSize; x < width; x += gridSize) {
+        ctx.save();
+        stars.forEach((star) => {
+            ctx.globalAlpha = star.a;
+            ctx.fillStyle = "#e2e8f0";
             ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, height);
-            ctx.stroke();
-        }
-        for (let y = gridSize; y < height; y += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(width, y);
-            ctx.stroke();
-        }
+            ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+            ctx.fill();
+        });
         ctx.restore();
+
+        ctx.fillStyle = "rgba(15, 23, 42, 0.6)";
+        ctx.fillRect(0, height - 32, width, 32);
     };
 
     const drawPlayer = () => {
         ctx.save();
-        ctx.fillStyle = "#f8fafc";
-        ctx.shadowColor = "rgba(255, 255, 255, 0.45)";
-        ctx.shadowBlur = 12;
+        ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+        ctx.fillStyle = "#38bdf8";
         ctx.beginPath();
-        ctx.rect(player.x - player.size / 2, player.y - player.size / 2, player.size, player.size);
+        ctx.moveTo(0, -player.height / 2);
+        ctx.lineTo(player.width / 2, player.height / 2);
+        ctx.lineTo(0, player.height / 4);
+        ctx.lineTo(-player.width / 2, player.height / 2);
+        ctx.closePath();
         ctx.fill();
         ctx.restore();
     };
 
-    const drawOrb = () => {
-        ctx.save();
-        ctx.fillStyle = "#ffe066";
-        ctx.shadowColor = "rgba(255, 224, 102, 0.6)";
-        ctx.shadowBlur = 18;
-        ctx.beginPath();
-        ctx.arc(orb.x, orb.y, orb.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+    const drawInvaders = () => {
+        ctx.fillStyle = "#fbbf24";
+        invaders.forEach((inv) => {
+            ctx.save();
+            ctx.translate(inv.x + inv.width / 2, inv.y + inv.height / 2);
+            ctx.scale(1.1, 1);
+            ctx.beginPath();
+            ctx.rect(-inv.width / 2, -inv.height / 2, inv.width, inv.height);
+            ctx.fill();
+            ctx.restore();
+        });
+    };
+
+    const drawShots = () => {
+        ctx.fillStyle = "#f8fafc";
+        playerShots.forEach((shot) => {
+            ctx.fillRect(shot.x, shot.y, shot.width, shot.height);
+        });
+
+        ctx.fillStyle = "#f87171";
+        enemyShots.forEach((shot) => {
+            ctx.fillRect(shot.x, shot.y, shot.width, shot.height);
+        });
     };
 
     const drawScene = () => {
         drawBackground();
-        drawOrb();
+        drawInvaders();
+        drawShots();
         drawPlayer();
     };
 
-    const movePlayer = (delta) => {
-        const distance = player.speed * delta;
-        if (keys.has("up")) {
-            player.y -= distance;
-        }
-        if (keys.has("down")) {
-            player.y += distance;
-        }
-        if (keys.has("left")) {
-            player.x -= distance;
-        }
-        if (keys.has("right")) {
-            player.x += distance;
+    const spawnWave = () => {
+        const cols = 8;
+        const rows = 4 + Math.min(wave - 1, 3);
+        const invaderWidth = 34;
+        const invaderHeight = 26;
+        const horizontalGap = 48;
+        const verticalGap = 38;
+        const startX = (width - (cols - 1) * horizontalGap) / 2 - invaderWidth / 2;
+        const startY = 70;
+
+        invaders = [];
+        for (let r = 0; r < rows; r += 1) {
+            for (let c = 0; c < cols; c += 1) {
+                invaders.push({
+                    x: startX + c * horizontalGap,
+                    y: startY + r * verticalGap,
+                    width: invaderWidth,
+                    height: invaderHeight,
+                    col: c,
+                });
+            }
         }
 
-        const half = player.size / 2;
-        player.x = clamp(player.x, half, width - half);
-        player.y = clamp(player.y, half, height - half);
+        invaderDirection = 1;
+        invaderSpeed = 35 + wave * 6;
+        enemyFireInterval = Math.max(0.6, 1.4 - wave * 0.12);
+        enemyFireTimer = 0;
+        playerShots = [];
+        enemyShots = [];
+        playerCooldown = 0;
+        drawScene();
     };
 
-    const normaliseKey = (key) => {
-        switch (key) {
-            case "ArrowUp":
-            case "w":
-            case "W":
-                return "up";
-            case "ArrowDown":
-            case "s":
-            case "S":
-                return "down";
-            case "ArrowLeft":
-            case "a":
-            case "A":
-                return "left";
-            case "ArrowRight":
-            case "d":
-            case "D":
-                return "right";
-            default:
-                return null;
-        }
+    const resetPlayer = () => {
+        player.x = width / 2 - player.width / 2;
     };
 
-    const handleKeyDown = (event) => {
-        const direction = normaliseKey(event.key);
-        if (!direction) {
+    const firePlayerShot = () => {
+        if (playerCooldown > 0 || !running) {
             return;
         }
 
-        event.preventDefault();
-        keys.add(direction);
+        playerShots.push({
+            x: player.x + player.width / 2 - 2,
+            y: player.y - 14,
+            width: 4,
+            height: 14,
+            speed: 520,
+        });
+        playerCooldown = 0.25;
     };
 
-    const handleKeyUp = (event) => {
-        const direction = normaliseKey(event.key);
-        if (!direction) {
+    const fireEnemyShot = () => {
+        if (!invaders.length) {
             return;
         }
 
-        keys.delete(direction);
+        const columns = new Map();
+        invaders.forEach((inv) => {
+            const current = columns.get(inv.col);
+            if (!current || inv.y > current.y) {
+                columns.set(inv.col, inv);
+            }
+        });
+
+        const shooters = Array.from(columns.values());
+        const shooter = shooters[Math.floor(Math.random() * shooters.length)];
+        enemyShots.push({
+            x: shooter.x + shooter.width / 2 - 3,
+            y: shooter.y + shooter.height,
+            width: 6,
+            height: 16,
+            speed: 180 + wave * 18,
+        });
     };
 
-    const isCollidingWithOrb = () => {
-        const dx = player.x - orb.x;
-        const dy = player.y - orb.y;
-        const radius = Math.sqrt(2 * (player.size / 2) ** 2);
-        const distance = Math.hypot(dx, dy);
-        return distance <= radius + orb.radius - 4;
+    const loseLife = (message) => {
+        lives -= 1;
+        updateHud();
+        if (lives <= 0) {
+            endGame(false, message || "The fleet has fallen.");
+            return;
+        }
+
+        statusMessage.textContent = message ? `${message} ${lives} lives left.` : `${lives} lives remain.`;
+        resetPlayer();
+        playerShots = [];
+        enemyShots = [];
+        playerCooldown = 0;
+    };
+
+    const endGame = (didWin, message) => {
+        running = false;
+        startButton.disabled = false;
+        statusMessage.textContent = message || (didWin ? "Sector secure!" : "Game over." );
+        drawScene();
+    };
+
+    const advanceWave = () => {
+        wave += 1;
+        updateHud();
+        statusMessage.textContent = `Wave ${wave} incoming!`;
+        setTimeout(() => {
+            if (!running) {
+                return;
+            }
+            spawnWave();
+        }, 900);
     };
 
     const loop = (timestamp) => {
@@ -212,41 +278,165 @@ function initOrbHopper(canvas) {
             return;
         }
 
-        const delta = (timestamp - lastTimestamp) / 1000;
+        const delta = Math.min((timestamp - lastTimestamp) / 1000, 0.05);
         lastTimestamp = timestamp;
-        timer = Math.max(0, timer - delta);
 
-        movePlayer(delta);
+        playerCooldown = Math.max(0, playerCooldown - delta);
+        enemyFireTimer += delta;
 
-        if (isCollidingWithOrb()) {
-            score += 10;
-            updateScore();
-            spawnOrb();
-            statusMessage.textContent = "Nice scoop! Keep going.";
+        const moveDistance = player.speed * delta;
+        if (keys.has("left")) {
+            player.x -= moveDistance;
+        }
+        if (keys.has("right")) {
+            player.x += moveDistance;
+        }
+        player.x = clamp(player.x, 12, width - player.width - 12);
+
+        if (enemyFireTimer >= enemyFireInterval) {
+            fireEnemyShot();
+            enemyFireTimer = 0;
         }
 
-        updateTimer();
-        drawScene();
+        if (invaders.length) {
+            let leftEdge = Infinity;
+            let rightEdge = -Infinity;
+            invaders.forEach((inv) => {
+                inv.x += invaderDirection * invaderSpeed * delta;
+                if (inv.x < leftEdge) {
+                    leftEdge = inv.x;
+                }
+                if (inv.x + inv.width > rightEdge) {
+                    rightEdge = inv.x + inv.width;
+                }
+            });
 
-        if (timer <= 0) {
-            running = false;
-            startButton.disabled = false;
-            statusMessage.textContent = score > 0 ? `Time! You banked ${score} points.` : "Time! Give it another shot.";
+            if (
+                (invaderDirection === 1 && rightEdge >= width - 30) ||
+                (invaderDirection === -1 && leftEdge <= 30)
+            ) {
+                invaderDirection *= -1;
+                invaders.forEach((inv) => {
+                    inv.y += invaderDrop;
+                });
+            }
+
+            for (let i = invaders.length - 1; i >= 0; i -= 1) {
+                const inv = invaders[i];
+                if (inv.y + inv.height >= player.y - 4) {
+                    loseLife("Invaders broke through!");
+                    if (!running) {
+                        return;
+                    }
+                    invaders.splice(i, 1);
+                }
+            }
+        }
+
+        for (let i = playerShots.length - 1; i >= 0; i -= 1) {
+            const shot = playerShots[i];
+            shot.y -= shot.speed * delta;
+            if (shot.y + shot.height < 0) {
+                playerShots.splice(i, 1);
+                continue;
+            }
+
+            for (let j = invaders.length - 1; j >= 0; j -= 1) {
+                const inv = invaders[j];
+                if (intersects(shot, inv)) {
+                    playerShots.splice(i, 1);
+                    invaders.splice(j, 1);
+                    score += 100;
+                    updateHud();
+                    statusMessage.textContent = "Direct hit!";
+                    break;
+                }
+            }
+        }
+
+        for (let i = enemyShots.length - 1; i >= 0; i -= 1) {
+            const shot = enemyShots[i];
+            shot.y += shot.speed * delta;
+            if (shot.y > height) {
+                enemyShots.splice(i, 1);
+                continue;
+            }
+
+            if (intersects(shot, player)) {
+                enemyShots.splice(i, 1);
+                loseLife("You took a hit!");
+                if (!running) {
+                    return;
+                }
+            }
+        }
+
+        if (!invaders.length) {
+            score += 200;
+            updateHud();
+            statusMessage.textContent = "Wave cleared!";
+            advanceWave();
+        }
+
+        drawScene();
+        requestAnimationFrame(loop);
+    };
+
+    const handleKeyDown = (event) => {
+        if (event.repeat) {
             return;
         }
 
-        requestAnimationFrame(loop);
+        switch (event.key) {
+            case "ArrowLeft":
+            case "a":
+            case "A":
+                keys.add("left");
+                event.preventDefault();
+                break;
+            case "ArrowRight":
+            case "d":
+            case "D":
+                keys.add("right");
+                event.preventDefault();
+                break;
+            case " ":
+            case "Space":
+                event.preventDefault();
+                firePlayerShot();
+                break;
+            default:
+                break;
+        }
+    };
+
+    const handleKeyUp = (event) => {
+        switch (event.key) {
+            case "ArrowLeft":
+            case "a":
+            case "A":
+                keys.delete("left");
+                break;
+            case "ArrowRight":
+            case "d":
+            case "D":
+                keys.delete("right");
+                break;
+            default:
+                break;
+        }
     };
 
     startButton.addEventListener("click", () => {
         running = true;
         score = 0;
-        timer = 30;
-        updateScore();
-        updateTimer();
-        spawnOrb();
-        statusMessage.textContent = "Collect the glowing orbs!";
+        lives = 3;
+        wave = 1;
+        updateHud();
+        resetPlayer();
+        statusMessage.textContent = "Defend the sector!";
         startButton.disabled = true;
+        spawnWave();
         lastTimestamp = performance.now();
         requestAnimationFrame((timestamp) => {
             lastTimestamp = timestamp;
@@ -263,19 +453,6 @@ function initOrbHopper(canvas) {
         }
     });
 
-    const reset = () => {
-        running = false;
-        score = 0;
-        timer = 30;
-        player.x = width / 2;
-        player.y = height / 2;
-        spawnOrb();
-        updateScore();
-        updateTimer();
-        startButton.disabled = false;
-        statusMessage.textContent = "Ready when you are!";
-        drawScene();
-    };
-
-    reset();
+    updateHud();
+    drawScene();
 }
