@@ -1,0 +1,87 @@
+﻿:root {
+    --accent: #0c7b93;
+    --accent-dark: #095a6a;
+    --text: #1f2933;
+    --background: #f7f9fc;
+    --surface: #ffffff;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--background);
+}
+
+.container {
+    width: min(1100px, 90vw);
+    margin: 0 auto;
+}
+
+.site-header {
+    background: var(--surface);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    padding: 4rem 0 3rem;
+    text-align: center;
+}
+
+.site-header h1 {
+    margin: 0;
+    font-size: clamp(2.2rem, 4vw, 3rem);
+}
+
+.tagline {
+    margin: 1rem auto 2rem;
+    max-width: 500px;
+    color: rgba(31, 41, 51, 0.75);
+}
+
+.cta {
+    display: inline-block;
+    padding: 0.8rem 1.6rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.2s ease;
+}
+
+.cta:hover {
+    background: var(--accent-dark);
+}
+
+.section {
+    padding: 3rem 0;
+}
+
+.section.alt {
+    background: var(--surface);
+}
+
+.section h2,
+.section h3 {
+    margin-top: 0;
+}
+
+.grid {
+    display: grid;
+    gap: 2rem;
+}
+
+@media (min-width: 768px) {
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.site-footer {
+    padding: 2rem 0;
+    text-align: center;
+    color: rgba(31, 41, 51, 0.6);
+}
