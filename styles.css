@@ -18,6 +18,11 @@ body {
     background: var(--background);
 }
 
+button,
+input {
+    font-family: inherit;
+}
+
 .container {
     width: min(1100px, 90vw);
     margin: 0 auto;
@@ -56,6 +61,37 @@ body {
     background: var(--accent-dark);
 }
 
+.tab-nav {
+    margin: 2.5rem auto 0;
+    display: inline-flex;
+    gap: 0.4rem;
+    padding: 0.4rem;
+    background: rgba(12, 123, 147, 0.08);
+    border-radius: 999px;
+}
+
+.tab-link {
+    border: none;
+    background: transparent;
+    padding: 0.6rem 1.4rem;
+    border-radius: 999px;
+    font-weight: 600;
+    color: var(--accent-dark);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tab-link.active {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 10px 20px -12px rgba(9, 90, 106, 0.4);
+}
+
+.tab-link:focus-visible {
+    outline: 3px solid rgba(12, 123, 147, 0.35);
+    outline-offset: 2px;
+}
+
 .section {
     padding: 3rem 0;
 }
@@ -78,6 +114,83 @@ body {
     .grid {
         grid-template-columns: repeat(2, 1fr);
     }
+}
+
+.has-tabs .tab-panel {
+    display: none;
+}
+
+.has-tabs .tab-panel.is-active {
+    display: block;
+}
+
+.game-card {
+    background: var(--surface);
+    padding: clamp(2rem, 4vw, 3rem);
+    border-radius: 20px;
+    box-shadow: 0 18px 30px -20px rgba(15, 23, 42, 0.35);
+    max-width: 600px;
+}
+
+.guess-form {
+    margin-top: 1.5rem;
+    display: grid;
+    gap: 0.75rem;
+}
+
+.guess-form label {
+    font-weight: 600;
+}
+
+.guess-controls {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.guess-controls input[type="number"] {
+    width: 120px;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(15, 23, 42, 0.18);
+    border-radius: 12px;
+    font-size: 1rem;
+    transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+.guess-controls input[type="number"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(12, 123, 147, 0.2);
+    outline: none;
+}
+
+.guess-button,
+.play-again {
+    border: none;
+    border-radius: 12px;
+    padding: 0.75rem 1.5rem;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.guess-button:hover,
+.play-again:hover {
+    background: var(--accent-dark);
+    box-shadow: 0 12px 22px -15px rgba(9, 90, 106, 0.45);
+}
+
+.play-again {
+    margin-top: 1rem;
+}
+
+.feedback {
+    margin-top: 1.2rem;
+    min-height: 1.5rem;
+    font-weight: 500;
+    color: var(--accent-dark);
 }
 
 .site-footer {
