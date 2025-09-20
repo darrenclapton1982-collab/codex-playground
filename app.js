@@ -1,6 +1,91 @@
 const body = document.body;
 body.classList.add("has-tabs");
 
+const themeToggle = document.getElementById("theme-toggle");
+const themePreferenceKey = "codex-playground-theme";
+const themeMediaQuery =
+    typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-color-scheme: dark)")
+        : null;
+let manualThemePreference = null;
+
+const updateThemeToggle = (theme) => {
+    if (!themeToggle) {
+        return;
+    }
+
+    const isDark = theme === "dark";
+    themeToggle.setAttribute("aria-pressed", String(isDark));
+    const label = themeToggle.querySelector(".theme-toggle-label");
+    const icon = themeToggle.querySelector(".theme-toggle-icon");
+    if (label) {
+        label.textContent = isDark ? "Light mode" : "Dark mode";
+    }
+    if (icon) {
+        icon.textContent = isDark ? "☀️" : "🌙";
+    }
+};
+
+const applyTheme = (theme, { persist } = { persist: false }) => {
+    const isDark = theme === "dark";
+    body.classList.toggle("dark-mode", isDark);
+    updateThemeToggle(theme);
+    if (persist) {
+        try {
+            localStorage.setItem(themePreferenceKey, theme);
+            manualThemePreference = theme;
+        } catch (error) {
+            console.warn("Unable to persist theme preference", error);
+        }
+    }
+};
+
+const resolveInitialTheme = () => {
+    let storedTheme = null;
+    try {
+        storedTheme = localStorage.getItem(themePreferenceKey);
+    } catch (error) {
+        console.warn("Unable to read theme preference", error);
+    }
+
+    if (storedTheme === "light" || storedTheme === "dark") {
+        manualThemePreference = storedTheme;
+        return storedTheme;
+    }
+
+    if (themeMediaQuery?.matches) {
+        return "dark";
+    }
+
+    return "light";
+};
+
+const initialTheme = resolveInitialTheme();
+applyTheme(initialTheme);
+
+if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+        const nextTheme = body.classList.contains("dark-mode") ? "light" : "dark";
+        applyTheme(nextTheme, { persist: true });
+    });
+}
+
+const handleSystemThemeChange = (event) => {
+    if (manualThemePreference) {
+        return;
+    }
+    const prefersDark = event.matches;
+    applyTheme(prefersDark ? "dark" : "light");
+};
+
+if (themeMediaQuery) {
+    if (typeof themeMediaQuery.addEventListener === "function") {
+        themeMediaQuery.addEventListener("change", handleSystemThemeChange);
+    } else if (typeof themeMediaQuery.addListener === "function") {
+        themeMediaQuery.addListener(handleSystemThemeChange);
+    }
+}
+
 const tabButtons = Array.from(document.querySelectorAll(".tab-link"));
 const panels = Array.from(document.querySelectorAll(".tab-panel"));
 
@@ -63,6 +148,451 @@ tabButtons.forEach((button) => {
 
 activateTab("get-started");
 
+// Idea spark helper
+const ideaOutput = document.getElementById("idea-output");
+const newIdeaButton = document.getElementById("new-idea");
+const copyIdeaButton = document.getElementById("copy-idea");
+const ideaToast = document.getElementById("idea-toast");
+const ideaPrompts = [
+    "Prototype a micro-dashboard for live launch metrics.",
+    "Design a welcome flow that adapts to first-time visitors.",
+    "Map a swipeable card layout for quick comparisons.",
+    "Draft a snack-sized onboarding checklist modal.",
+    "Explore a color system that reacts to time of day.",
+    "Sketch a team mood tracker with emoji voting.",
+    "Build a collaborative idea wall with drag-and-drop cards.",
+    "Lay out a minimal changelog feed with filters.",
+    "Plot a responsive timeline for product milestones.",
+    "Mock a mobile quick-capture panel for voice notes.",
+    "Assemble a reusable component library starter grid.",
+    "Spin up a guided tour overlay with focus states.",
+];
+let displayedIdea = ideaOutput?.textContent?.trim() || ideaPrompts[0];
+let ideaToastTimer = null;
+
+const updateIdeaToast = (message) => {
+    if (!ideaToast) {
+        return;
+    }
+    if (ideaToastTimer) {
+        window.clearTimeout(ideaToastTimer);
+        ideaToastTimer = null;
+    }
+
+    if (!message) {
+        ideaToast.hidden = true;
+        ideaToast.textContent = "";
+        return;
+    }
+
+    ideaToast.hidden = false;
+    ideaToast.textContent = message;
+    ideaToastTimer = window.setTimeout(() => {
+        ideaToast.hidden = true;
+        ideaToastTimer = null;
+    }, 2200);
+};
+
+const showIdea = (idea) => {
+    if (!ideaOutput) {
+        return;
+    }
+    displayedIdea = idea;
+    ideaOutput.textContent = idea;
+};
+
+const pickRandomIdea = () => {
+    if (!ideaPrompts.length) {
+        return displayedIdea;
+    }
+
+    let idea = ideaPrompts[Math.floor(Math.random() * ideaPrompts.length)];
+    if (ideaPrompts.length > 1) {
+        let guard = 0;
+        while (idea === displayedIdea && guard < 5) {
+            idea = ideaPrompts[Math.floor(Math.random() * ideaPrompts.length)];
+            guard += 1;
+        }
+    }
+    return idea;
+};
+
+if (ideaOutput) {
+    showIdea(displayedIdea);
+}
+
+if (newIdeaButton) {
+    newIdeaButton.addEventListener("click", () => {
+        const idea = pickRandomIdea();
+        showIdea(idea);
+        updateIdeaToast("New spark loaded.");
+    });
+}
+
+if (copyIdeaButton) {
+    copyIdeaButton.addEventListener("click", async () => {
+        if (!displayedIdea) {
+            return;
+        }
+
+        const fallbackCopy = () => {
+            const tempInput = document.createElement("textarea");
+            tempInput.value = displayedIdea;
+            tempInput.setAttribute("readonly", "");
+            tempInput.style.position = "absolute";
+            tempInput.style.left = "-9999px";
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand("copy");
+                updateIdeaToast("Idea copied to clipboard.");
+            } catch (error) {
+                console.warn("Copy command failed", error);
+                updateIdeaToast("Copy not supported in this browser.");
+            }
+            document.body.removeChild(tempInput);
+        };
+
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+            try {
+                await navigator.clipboard.writeText(displayedIdea);
+                updateIdeaToast("Idea copied to clipboard.");
+                return;
+            } catch (error) {
+                console.warn("Clipboard copy failed", error);
+            }
+        }
+
+        fallbackCopy();
+    });
+}
+
+// Focus timer
+const timerDisplay = document.getElementById("timer-display");
+const timerToggle = document.getElementById("timer-toggle");
+const timerReset = document.getElementById("timer-reset");
+const timerStatus = document.getElementById("timer-status");
+const timerPresetButtons = Array.from(document.querySelectorAll(".timer-preset"));
+let timerDuration = 25 * 60;
+let timerRemaining = timerDuration;
+let timerIntervalId = null;
+let timerEndTimestamp = null;
+let timerRunning = false;
+
+const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60)
+        .toString()
+        .padStart(2, "0");
+    const secs = Math.floor(seconds % 60)
+        .toString()
+        .padStart(2, "0");
+    return `${mins}:${secs}`;
+};
+
+const updateTimerDisplay = () => {
+    if (timerDisplay) {
+        timerDisplay.textContent = formatTime(timerRemaining);
+    }
+};
+
+const updateTimerStatus = (message) => {
+    if (timerStatus) {
+        timerStatus.textContent = message;
+    }
+};
+
+const updateTimerToggleLabel = () => {
+    if (!timerToggle) {
+        return;
+    }
+    let label = "Start";
+    if (timerRunning) {
+        label = "Pause";
+    } else if (timerRemaining > 0 && timerRemaining < timerDuration) {
+        label = "Resume";
+    }
+    timerToggle.textContent = label;
+};
+
+const clearTimer = () => {
+    if (timerIntervalId) {
+        window.clearInterval(timerIntervalId);
+        timerIntervalId = null;
+    }
+    timerEndTimestamp = null;
+};
+
+const stopTimer = (message, { silent = false } = {}) => {
+    if (!timerRunning) {
+        if (!silent && message) {
+            updateTimerStatus(message);
+        }
+        updateTimerToggleLabel();
+        return;
+    }
+    timerRunning = false;
+    clearTimer();
+    if (!silent) {
+        updateTimerStatus(message || "Paused for a breather.");
+    }
+    updateTimerToggleLabel();
+};
+
+const handleTimerComplete = () => {
+    timerRunning = false;
+    clearTimer();
+    timerRemaining = 0;
+    updateTimerDisplay();
+    updateTimerStatus("Timer complete! Take a break.");
+    updateTimerToggleLabel();
+};
+
+const startTimer = () => {
+    if (timerRunning) {
+        return;
+    }
+    if (timerRemaining <= 0) {
+        timerRemaining = timerDuration;
+    }
+    timerRunning = true;
+    timerEndTimestamp = Date.now() + timerRemaining * 1000;
+    updateTimerStatus("Timer in motion.");
+    updateTimerToggleLabel();
+
+    timerIntervalId = window.setInterval(() => {
+        const now = Date.now();
+        const remaining = Math.max(0, Math.round((timerEndTimestamp - now) / 1000));
+        timerRemaining = remaining;
+        updateTimerDisplay();
+        if (remaining <= 0) {
+            handleTimerComplete();
+        }
+    }, 250);
+};
+
+const setTimerPreset = (minutes, announce = true) => {
+    timerDuration = minutes * 60;
+    if (!timerRunning) {
+        timerRemaining = timerDuration;
+        updateTimerDisplay();
+    }
+    timerPresetButtons.forEach((button) => {
+        const isActive = Number(button.dataset.timerPreset) === minutes;
+        button.classList.toggle("is-active", isActive);
+    });
+    if (announce) {
+        updateTimerStatus(`Preset set to ${minutes} minutes.`);
+    }
+    updateTimerToggleLabel();
+};
+
+if (timerDisplay) {
+    updateTimerDisplay();
+    setTimerPreset(25, false);
+}
+
+if (timerToggle) {
+    timerToggle.addEventListener("click", () => {
+        if (timerRunning) {
+            stopTimer();
+        } else {
+            startTimer();
+        }
+    });
+}
+
+if (timerReset) {
+    timerReset.addEventListener("click", () => {
+        stopTimer("Timer reset.");
+        timerRemaining = timerDuration;
+        updateTimerDisplay();
+        updateTimerStatus("Back to the starting line.");
+        updateTimerToggleLabel();
+    });
+}
+
+if (timerPresetButtons.length) {
+    timerPresetButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            const minutes = Number(button.dataset.timerPreset);
+            const wasRunning = timerRunning;
+            stopTimer();
+            timerRunning = false;
+            timerRemaining = minutes * 60;
+            setTimerPreset(minutes);
+            updateTimerDisplay();
+            if (wasRunning) {
+                updateTimerStatus("Preset changed. Press start when ready.");
+            }
+        });
+    });
+}
+
+// Notes board
+const noteForm = document.getElementById("note-form");
+const noteInput = document.getElementById("note-input");
+const noteList = document.getElementById("note-list");
+const noteEmpty = document.getElementById("note-empty");
+const noteStorageKey = "codex-playground-notes";
+let notes = [];
+
+const saveNotes = () => {
+    try {
+        localStorage.setItem(noteStorageKey, JSON.stringify(notes));
+    } catch (error) {
+        console.warn("Unable to persist notes", error);
+    }
+};
+
+const renderNotes = () => {
+    if (!noteList) {
+        return;
+    }
+    noteList.innerHTML = "";
+    if (!notes.length) {
+        if (noteEmpty) {
+            noteEmpty.hidden = false;
+        }
+        return;
+    }
+
+    if (noteEmpty) {
+        noteEmpty.hidden = true;
+    }
+
+    const fragment = document.createDocumentFragment();
+    notes.forEach((note) => {
+        const item = document.createElement("li");
+        item.className = "note-item";
+        item.dataset.noteId = note.id;
+
+        const label = document.createElement("label");
+        label.className = "note-label";
+        label.setAttribute("for", `note-${note.id}`);
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.id = `note-${note.id}`;
+        checkbox.checked = note.done;
+        checkbox.dataset.noteId = note.id;
+
+        const text = document.createElement("span");
+        text.className = note.done ? "note-text is-done" : "note-text";
+        text.textContent = note.text;
+
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "note-delete";
+        deleteButton.dataset.noteId = note.id;
+        deleteButton.setAttribute("aria-label", `Delete note: ${note.text}`);
+        deleteButton.textContent = "Remove";
+
+        label.appendChild(checkbox);
+        label.appendChild(text);
+        item.appendChild(label);
+        item.appendChild(deleteButton);
+
+        fragment.appendChild(item);
+    });
+
+    noteList.appendChild(fragment);
+};
+
+const loadNotes = () => {
+    let storedNotes = [];
+    try {
+        const raw = localStorage.getItem(noteStorageKey);
+        if (raw) {
+            storedNotes = JSON.parse(raw);
+        }
+    } catch (error) {
+        console.warn("Unable to read stored notes", error);
+    }
+
+    if (Array.isArray(storedNotes)) {
+        notes = storedNotes
+            .filter((note) => note && typeof note.text === "string")
+            .map((note) => ({
+                id: String(note.id || Date.now() + Math.random()),
+                text: note.text,
+                done: Boolean(note.done),
+            }));
+    }
+    renderNotes();
+};
+
+if (noteForm && noteInput) {
+    noteForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const value = noteInput.value.trim();
+        if (!value) {
+            noteInput.value = "";
+            noteInput.focus();
+            return;
+        }
+
+        const note = {
+            id: `${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            text: value,
+            done: false,
+        };
+        notes.unshift(note);
+        noteInput.value = "";
+        renderNotes();
+        saveNotes();
+        if (noteEmpty) {
+            noteEmpty.hidden = true;
+        }
+    });
+}
+
+if (noteList) {
+    noteList.addEventListener("change", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) {
+            return;
+        }
+        const noteId = target.dataset.noteId;
+        if (!noteId) {
+            return;
+        }
+        notes = notes.map((note) =>
+            note.id === noteId
+                ? {
+                      ...note,
+                      done: target.checked,
+                  }
+                : note,
+        );
+        renderNotes();
+        saveNotes();
+    });
+
+    noteList.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+            return;
+        }
+        if (!target.classList.contains("note-delete")) {
+            return;
+        }
+
+        const noteId = target.dataset.noteId;
+        if (!noteId) {
+            return;
+        }
+
+        notes = notes.filter((note) => note.id !== noteId);
+        renderNotes();
+        saveNotes();
+        if (!notes.length && noteEmpty) {
+            noteEmpty.hidden = false;
+        }
+    });
+}
+
+loadNotes();
+
 const canvas = document.getElementById("game-canvas");
 if (canvas) {
     initSpaceInvaders(canvas);
@@ -79,11 +609,87 @@ function initSpaceInvaders(canvas) {
     const livesValue = document.getElementById("lives-value");
     const waveValue = document.getElementById("wave-value");
     const statusMessage = document.getElementById("status-message");
+    const bestScoreValue = document.getElementById("best-score-value");
+    const bestWaveValue = document.getElementById("best-wave-value");
 
-    if (!ctx || !startButton || !scoreValue || !livesValue || !waveValue || !statusMessage) {
+    if (
+        !ctx ||
+        !startButton ||
+        !scoreValue ||
+        !livesValue ||
+        !waveValue ||
+        !statusMessage ||
+        !bestScoreValue ||
+        !bestWaveValue
+    ) {
         console.warn("Space Invaders setup incomplete: required elements missing.");
         return;
     }
+
+    const bestStatsKey = "codex-space-invaders-best";
+    let bestScore = 0;
+    let bestWave = 1;
+    let highestWaveThisRun = 1;
+    let achievedNewBest = false;
+
+    const refreshBestDisplay = () => {
+        bestScoreValue.textContent = String(bestScore);
+        bestWaveValue.textContent = String(bestWave);
+    };
+
+    const persistBestStats = () => {
+        try {
+            localStorage.setItem(
+                bestStatsKey,
+                JSON.stringify({
+                    score: bestScore,
+                    wave: bestWave,
+                }),
+            );
+        } catch (error) {
+            console.warn("Unable to persist best score", error);
+        }
+    };
+
+    const updateBestStats = (potentialScore, potentialWave) => {
+        let improved = false;
+        if (typeof potentialScore === "number" && potentialScore > bestScore) {
+            bestScore = potentialScore;
+            improved = true;
+        }
+        if (typeof potentialWave === "number" && potentialWave > bestWave) {
+            bestWave = potentialWave;
+            improved = true;
+        }
+        if (improved) {
+            achievedNewBest = true;
+            refreshBestDisplay();
+            persistBestStats();
+        }
+        return improved;
+    };
+
+    const loadBestStats = () => {
+        try {
+            const raw = localStorage.getItem(bestStatsKey);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === "object") {
+                    if (typeof parsed.score === "number" && Number.isFinite(parsed.score)) {
+                        bestScore = Math.max(0, Math.floor(parsed.score));
+                    }
+                    if (typeof parsed.wave === "number" && Number.isFinite(parsed.wave)) {
+                        bestWave = Math.max(1, Math.floor(parsed.wave));
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn("Unable to read stored best score", error);
+        }
+        refreshBestDisplay();
+    };
+
+    loadBestStats();
 
     const stars = Array.from({ length: 70 }, () => ({
         x: Math.random() * width,
@@ -130,6 +736,7 @@ function initSpaceInvaders(canvas) {
         scoreValue.textContent = String(score);
         livesValue.textContent = String(lives);
         waveValue.textContent = String(wave);
+        refreshBestDisplay();
     };
 
     const drawBackground = () => {
@@ -229,6 +836,8 @@ function initSpaceInvaders(canvas) {
         playerShots = [];
         enemyShots = [];
         playerCooldown = 0;
+        highestWaveThisRun = Math.max(highestWaveThisRun, wave);
+        updateBestStats(score, highestWaveThisRun);
         drawScene();
     };
 
@@ -293,14 +902,20 @@ function initSpaceInvaders(canvas) {
     const endGame = (didWin, message) => {
         running = false;
         startButton.disabled = false;
-        statusMessage.textContent = message || (didWin ? "Sector secure!" : "Game over." );
+        updateBestStats(score, highestWaveThisRun);
+        const baseMessage = message || (didWin ? "Sector secure!" : "Game over.");
+        statusMessage.textContent = achievedNewBest ? `${baseMessage} New personal best!` : baseMessage;
         drawScene();
     };
 
     const advanceWave = () => {
         wave += 1;
+        highestWaveThisRun = Math.max(highestWaveThisRun, wave);
         updateHud();
-        statusMessage.textContent = `Wave ${wave} incoming!`;
+        const improved = updateBestStats(score, highestWaveThisRun);
+        statusMessage.textContent = improved
+            ? `Wave ${wave} incoming! Personal best!`
+            : `Wave ${wave} incoming!`;
         setTimeout(() => {
             if (!running) {
                 return;
@@ -384,7 +999,10 @@ function initSpaceInvaders(canvas) {
                     invaders.splice(j, 1);
                     score += 100;
                     updateHud();
-                    statusMessage.textContent = "Direct hit!";
+                    const improved = updateBestStats(score, highestWaveThisRun);
+                    statusMessage.textContent = improved
+                        ? "Direct hit! New personal best!"
+                        : "Direct hit!";
                     break;
                 }
             }
@@ -410,7 +1028,10 @@ function initSpaceInvaders(canvas) {
         if (!invaders.length) {
             score += 200;
             updateHud();
-            statusMessage.textContent = "Wave cleared!";
+            const improved = updateBestStats(score, highestWaveThisRun);
+            statusMessage.textContent = improved
+                ? "Wave cleared! New personal best!"
+                : "Wave cleared!";
             advanceWave();
         }
 
@@ -468,6 +1089,8 @@ function initSpaceInvaders(canvas) {
         score = 0;
         lives = 3;
         wave = 1;
+        highestWaveThisRun = 1;
+        achievedNewBest = false;
         updateHud();
         resetPlayer();
         statusMessage.textContent = "Defend the sector!";

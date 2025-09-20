@@ -13,9 +13,14 @@
             <h1>Codex Playground</h1>
             <p class="tagline">A clean slate to explore ideas and build fast.</p>
             <a class="cta" href="#get-started">Get Started</a>
+            <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">
+                <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
+                <span class="theme-toggle-label">Dark mode</span>
+            </button>
             <nav class="tab-nav" role="tablist" aria-label="Site sections">
                 <button id="tab-overview" class="tab-link" type="button" role="tab" aria-controls="get-started" aria-selected="true" data-target="get-started">Overview</button>
                 <button id="tab-games" class="tab-link" type="button" role="tab" aria-controls="games" aria-selected="false" data-target="games">Games</button>
+                <button id="tab-toolkit" class="tab-link" type="button" role="tab" aria-controls="toolkit" aria-selected="false" data-target="toolkit">Toolkit</button>
             </nav>
         </div>
     </header>
@@ -39,11 +44,62 @@
                         <span class="hud-item"><strong id="score-value">0</strong> pts</span>
                         <span class="hud-item"><strong id="lives-value">3</strong> lives</span>
                         <span class="hud-item"><strong id="wave-value">1</strong> wave</span>
+                        <span class="hud-item">best <strong id="best-score-value">0</strong></span>
+                        <span class="hud-item">top wave <strong id="best-wave-value">1</strong></span>
                     </div>
                     <button id="start-game" type="button" class="start-button">Start Game</button>
                 </div>
 
                 <p id="status-message" class="status" role="status" aria-live="polite">Squadron standing by.</p>
+            </div>
+        </section>
+
+        <section class="section tab-panel" id="toolkit" role="tabpanel" aria-labelledby="tab-toolkit" tabindex="0">
+            <div class="container">
+                <h2>Rapid tinkering toolkit</h2>
+                <p class="section-intro">Keep momentum with a handful of bite-sized helpers. Ideate, focus, and jot notes without leaving the page.</p>
+                <div class="grid toolkit-grid">
+                    <article class="card idea-card" aria-labelledby="idea-card-title">
+                        <h3 id="idea-card-title">Idea spark</h3>
+                        <p>Stir up a direction for your next experiment. Shuffle until something sticks.</p>
+                        <div id="idea-output" class="idea-output" role="status" aria-live="polite">Prototype a micro-dashboard for live launch metrics.</div>
+                        <div class="card-actions">
+                            <button id="new-idea" type="button">Shuffle idea</button>
+                            <button id="copy-idea" type="button">Copy</button>
+                        </div>
+                        <p id="idea-toast" class="idea-toast" role="status" aria-live="polite" hidden></p>
+                    </article>
+
+                    <article class="card timer-card" aria-labelledby="timer-card-title">
+                        <h3 id="timer-card-title">Focus timer</h3>
+                        <p>Pick a sprint, press start, and stay on target. We'll keep count quietly.</p>
+                        <div id="timer-display" class="timer-display" aria-live="polite">25:00</div>
+                        <div class="timer-controls">
+                            <div class="timer-presets" role="group" aria-label="Timer presets">
+                                <button type="button" class="timer-preset" data-timer-preset="15">15 min</button>
+                                <button type="button" class="timer-preset" data-timer-preset="25">25 min</button>
+                                <button type="button" class="timer-preset" data-timer-preset="45">45 min</button>
+                            </div>
+                            <div class="timer-actions">
+                                <button id="timer-toggle" type="button">Start</button>
+                                <button id="timer-reset" type="button">Reset</button>
+                            </div>
+                        </div>
+                        <p id="timer-status" class="timer-status" role="status" aria-live="polite">Ready when you are.</p>
+                    </article>
+
+                    <article class="card notes-card" aria-labelledby="notes-card-title">
+                        <h3 id="notes-card-title">Scratch notes</h3>
+                        <p>Capture tasks or reminders. They'll be waiting the next time you drop in.</p>
+                        <form id="note-form" class="note-form" aria-label="Add a note">
+                            <label class="visually-hidden" for="note-input">Note text</label>
+                            <input id="note-input" type="text" name="note" placeholder="Draft an insight..." autocomplete="off" required>
+                            <button type="submit">Add</button>
+                        </form>
+                        <p id="note-empty" class="note-empty">No notes yet—your canvas is clear.</p>
+                        <ul id="note-list" class="note-list" aria-live="polite"></ul>
+                    </article>
+                </div>
             </div>
         </section>
     </main>
