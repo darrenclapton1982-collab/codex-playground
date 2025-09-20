@@ -19,10 +19,46 @@ const activateTab = (id) => {
     });
 };
 
+const handleTabKeydown = (event) => {
+    const { key } = event;
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(key)) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const currentIndex = tabButtons.indexOf(event.currentTarget);
+    if (currentIndex === -1) {
+        return;
+    }
+
+    let nextIndex = currentIndex;
+
+    if (key === "ArrowLeft") {
+        nextIndex = (currentIndex - 1 + tabButtons.length) % tabButtons.length;
+    } else if (key === "ArrowRight") {
+        nextIndex = (currentIndex + 1) % tabButtons.length;
+    } else if (key === "Home") {
+        nextIndex = 0;
+    } else if (key === "End") {
+        nextIndex = tabButtons.length - 1;
+    }
+
+    const nextTab = tabButtons[nextIndex];
+    if (!nextTab) {
+        return;
+    }
+
+    activateTab(nextTab.dataset.target);
+    nextTab.focus();
+};
+
 tabButtons.forEach((button) => {
     button.addEventListener("click", () => {
         activateTab(button.dataset.target);
     });
+
+    button.addEventListener("keydown", handleTabKeydown);
 });
 
 activateTab("get-started");
