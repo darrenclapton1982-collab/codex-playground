@@ -9,6 +9,8 @@ projects/space-invaders/
 +-- app.js          # Bootstraps the game and DOM wiring
 +-- index.html      # Markup for HUD, controls, and canvas
 +-- styles.css      # Layout and component styling
++-- package.json    # npm scripts + dev dependencies
++-- bs-config.json  # lite-server configuration
 +-- src/
     +-- config.js   # Gameplay constants & presets
     +-- entities.js # Helpers to spawn/update entities
@@ -19,7 +21,19 @@ projects/space-invaders/
 
 ## Running
 
-Open `index.html` in a modern browser. No build tooling required.
+Install dependencies (already done when the scaffold ran, but safe to repeat):
+
+```
+npm install
+```
+
+Then start the local dev server:
+
+```
+npm run dev
+```
+
+Open http://localhost:5173 in your browser to play.
 
 ## Controls
 

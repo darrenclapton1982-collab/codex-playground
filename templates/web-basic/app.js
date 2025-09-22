@@ -1,5 +1,5 @@
 export function init() {
-    console.log('"'"'{{PROJECT_NAME}} ready."'"');
+    console.log("{{PROJECT_NAME}} ready.");
 }
 
 if (document.readyState === 'loading') {

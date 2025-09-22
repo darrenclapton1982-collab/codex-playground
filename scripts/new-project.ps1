@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [ValidatePattern("^[a-z0-9-]+$")]
-    [string]$ProjectName
+    [string]$ProjectName,
+    [int]$Port = 5173
 )
 
 $repoRoot = Split-Path $PSScriptRoot -Parent
@@ -18,17 +19,31 @@ if (-not (Test-Path $templateDir)) {
 }
 
 New-Item -ItemType Directory -Path $projectDir -Force | Out-Null
-Copy-Item -Path (Join-Path $templateDir '*') -Destination $projectDir -Recurse
+Copy-Item -Path (Join-Path $templateDir '*') -Destination $projectDir -Recurse -Force
 
 Get-ChildItem -Path $projectDir -Recurse -File | ForEach-Object {
     $content = Get-Content $_.FullName -Raw
     $content = $content.Replace("{{PROJECT_NAME}}", $ProjectName)
+    $content = $content.Replace("{{PORT}}", $Port.ToString())
     Set-Content -Path $_.FullName -Value $content
 }
 
-$readmePath = Join-Path $projectDir 'README.md'
-if (-not (Test-Path $readmePath)) {
-    "# $ProjectName`n`nStarter project created from templates/web-basic." | Set-Content -Path $readmePath
+$bsConfigPath = Join-Path $projectDir 'bs-config.json'
+if (Test-Path $bsConfigPath) {
+    $config = Get-Content $bsConfigPath -Raw | ConvertFrom-Json
+    $config.port = $Port
+    $config | ConvertTo-Json -Depth 10 | Set-Content -Path $bsConfigPath
+}
+
+Push-Location $projectDir
+try {
+    Write-Host "Installing npm dependencies..." -ForegroundColor Yellow
+    npm.cmd install | Out-Null
+    Write-Host "Dependencies installed." -ForegroundColor Green
+} catch {
+    Write-Warning "npm install failed. Install dependencies manually in $projectDir."
+} finally {
+    Pop-Location
 }
 
 Write-Output "Created project at projects/$ProjectName"

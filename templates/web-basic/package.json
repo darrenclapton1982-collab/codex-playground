@@ -1,0 +1,14 @@
+{
+  "name": "{{PROJECT_NAME}}",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "lite-server --config bs-config.json",
+    "start": "npm run dev",
+    "build": "echo \"No build step defined\""
+  },
+  "devDependencies": {
+    "lite-server": "^2.6.1"
+  }
+}
