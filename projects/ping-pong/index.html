@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ping Pong</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="site-header">
+        <h1>Ping Pong</h1>
+        <p class="tagline">A fast-paced paddle duel right in your browser.</p>
+    </header>
+    <main class="page">
+        <section class="game" aria-label="Ping pong game">
+            <canvas id="game-canvas" width="720" height="420" role="img" aria-label="Ping pong table"></canvas>
+            <div class="hud" role="status">
+                <div class="scores">
+                    <span class="score" data-side="left"><strong>CPU</strong> <span id="left-score">0</span></span>
+                    <span class="score" data-side="right"><strong>You</strong> <span id="right-score">0</span></span>
+                </div>
+                <div class="controls">
+                    <button id="toggle" type="button">Start</button>
+                    <p class="keys">Use Up / Down arrows to move your paddle.</p>
+                </div>
+                <p class="status" id="status-message">First to 5 points wins.</p>
+            </div>
+        </section>
+    </main>
+    <footer class="site-footer">
+        <small>Pause anytime with the Start button.</small>
+    </footer>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
