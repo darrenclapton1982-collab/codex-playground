@@ -1,0 +1,23 @@
+:root {
+    color-scheme: light dark;
+    --page-bg: #f4f7fb;
+    --page-fg: #1f2933;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: var(--page-bg);
+    color: var(--page-fg);
+}
+
+.page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    gap: 1.5rem;
+    text-align: center;
+    padding: 3rem clamp(1.5rem, 4vw, 6rem);
+}
