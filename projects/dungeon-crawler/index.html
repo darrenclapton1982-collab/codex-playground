@@ -1,0 +1,46 @@
+﻿<!doctype html>
+<html lang=" en\>
+ <head>
+ <meta charset=\UTF-8\ />
+ <meta name=\viewport\ content=\width=device-width initial-scale=1.0\ />
+ <title>Procedural Dungeon Crawler</title>
+ <link rel=\icon\ type=\image/svg+xml\ href=\/vite.svg\ />
+ </head>
+ <body>
+ <div id=\app\></div>
+ <div id=\hud\ class=\hidden\>
+ <div class=\hud-row\>
+ <div class=\hud-group\>
+ <span class=\label\>Health:</span>
+ <div class=\health-bar\>
+ <div id=\health-fill\></div>
+ </div>
+ <span id=\health-value\></span>
+ </div>
+ <div class=\hud-group\>
+ <span class=\label\>Score:</span>
+ <span id=\score-value\>0</span>
+ </div>
+ <div class=\hud-group\>
+ <span class=\label\>Level:</span>
+ <span id=\level-value\>1</span>
+ </div>
+ </div>
+ <canvas id=\minimap\ width=\200\ height=\200\></canvas>
+ </div>
+ <div id=\overlay\ class=\overlay\>
+ <div class=\overlay-panel\>
+ <h1 id=\overlay-title\>Procedural Dungeon</h1>
+ <p id=\overlay-message\>Click to begin your descent.</p>
+ <div class=\controls\>
+ <p><strong>Controls</strong></p>
+ <p>W/A/S/D to move</p>
+ <p>Mouse to look</p>
+ <p>Click to attack, E to interact, R to restart</p>
+ </div>
+ <button id=\action-button\>Start</button>
+ </div>
+ </div>
+ <script type=\module\ src=\/src/main.ts\></script>
+ </body>
+</html>

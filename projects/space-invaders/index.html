@@ -3,69 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Invaders | Prototype</title>
+    <title>Space Invaders | Full Spectrum</title>
+    <link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%228%22%20fill%3D%22%230ea5e9%22%2F%3E%3Cpath%20d%3D%22M21%2011h-2l-1%202h-4l-1-2h-2l-1%203v6l3%203h6l3-3v-6l-1-3Zm-3%207h-4v-2h4v2Z%22%20fill%3D%22%23f8fafc%22%2F%3E%3C%2Fsvg%3E\">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <header class="site-header">
-        <div class="container">
-            <h1>Space Invaders Prototype</h1>
-            <p class="tagline">A modular starting point for future waves of features.</p>
+    <canvas id="game-canvas" width="1280" height="720" aria-label="Space Invaders playfield"></canvas>
+
+    <header class="hud hud-top" role="presentation">
+        <div class="hud-block" aria-live="polite">
+            <span class="hud-label">Score</span>
+            <strong id="score-value">0</strong>
+        </div>
+        <div class="hud-block" aria-live="polite">
+            <span class="hud-label">High</span>
+            <strong id="highscore-value">0</strong>
+        </div>
+        <div class="hud-block" aria-live="polite">
+            <span class="hud-label">Wave</span>
+            <strong id="wave-value">1</strong>
+        </div>
+        <div class="hud-block" aria-live="polite">
+            <span class="hud-label">Lives</span>
+            <strong id="lives-value">3</strong>
+        </div>
+        <div class="hud-block" aria-live="polite">
+            <span class="hud-label">Shield</span>
+            <strong id="shield-value">0</strong>
+        </div>
+        <div class="hud-spacer" aria-hidden="true"></div>
+        <div class="hud-block hud-block--status" aria-live="polite">
+            <span class="hud-label">Power-Ups</span>
+            <span id="powerup-readout" class="powerup-readout">None</span>
+        </div>
+        <div class="hud-block hud-block--controls" role="group" aria-label="Game controls">
+            <label class="hud-label" for="difficulty-select">Difficulty</label>
+            <select id="difficulty-select" name="difficulty">
+                <option value="relaxed">Relaxed</option>
+                <option value="standard" selected>Standard</option>
+                <option value="intense">Intense</option>
+            </select>
+            <button id="start-game" type="button" class="hud-button">Start</button>
+            <button id="pause-game" type="button" class="hud-button" disabled aria-pressed="false">Pause</button>
+            <button id="fullscreen-toggle" type="button" class="hud-button" aria-pressed="false">Fullscreen</button>
         </div>
     </header>
 
-    <main class="site-main">
-        <div class="container layout" aria-label="Space Invaders project layout">
-            <section class="game-card" aria-labelledby="game-title">
-                <h2 id="game-title" class="visually-hidden">Playable demo</h2>
-                <div class="game-wrapper">
-                    <canvas id="game-canvas" width="520" height="420" aria-label="Space Invaders playfield"></canvas>
-                    <div class="hud" aria-live="polite">
-                        <span class="hud-item"><strong id="score-value">0</strong> pts</span>
-                        <span class="hud-item"><strong id="lives-value">3</strong> lives</span>
-                        <span class="hud-item"><strong id="wave-value">1</strong> wave</span>
-                        <span class="hud-item"><strong id="highscore-value">0</strong> best</span>
-                    </div>
-                    <div class="control-bar" role="group" aria-label="Game controls">
-                        <label class="control-difficulty" for="difficulty-select">
-                            <span class="control-label">Difficulty</span>
-                            <select id="difficulty-select" name="difficulty">
-                                <option value="relaxed">Relaxed</option>
-                                <option value="standard" selected>Standard</option>
-                                <option value="intense">Intense</option>
-                            </select>
-                        </label>
-                        <button id="start-game" type="button" class="btn start">Start</button>
-                        <button id="pause-game" type="button" class="btn pause" disabled aria-pressed="false">Pause</button>
-                    </div>
-                    <p id="status-message" class="status" role="status" aria-live="polite">Ready when you are.</p>
-                </div>
-            </section>
+    <div id="status-message" class="status-log" role="status" aria-live="polite">Press Start to ignite the defense grid. Build combos and chase the nebula boss every fifth wave.</div>
 
-            <aside class="sidebar" aria-label="Project notes">
-                <h2>Project structure</h2>
-                <ul>
-                    <li><span>app.js</span> wires DOM and bootstraps the game module.</li>
-                    <li><span>src/config.js</span> stores gameplay tuning and shared constants.</li>
-                    <li><span>src/game.js</span> orchestrates state, loop, and lifecycle hooks.</li>
-                    <li><span>src/render.js</span> and <span>src/entities.js</span> handle drawing and entity helpers.</li>
-                </ul>
-                <h2>Controls</h2>
-                <ul>
-                    <li><span>Move:</span> Arrow keys or A / D</li>
-                    <li><span>Fire:</span> Spacebar</li>
-                    <li><span>Pause:</span> P or Esc</li>
-                </ul>
-            </aside>
-        </div>
-    </main>
-
-    <footer class="site-footer">
-        <div class="container">
-            <small>Duplicate this folder to branch off future experiments.</small>
-        </div>
+    <footer class="hud hud-bottom" role="presentation">
+        <div class="hint">Move: Arrow Keys / A D</div>
+        <div class="hint">Fire: Space • Pause: P or Esc</div>
+        <div class="hint">Collect power cores for shields, overdrive, pierce, and wingmen.</div>
     </footer>
 
     <script type="module" src="app.js"></script>
 </body>
 </html>
+

@@ -1,21 +1,30 @@
-# Ping Pong
+# Neon Paddle
 
-A minimal browser-based ping pong duel built with HTML canvas and vanilla JavaScript. Battle a responsive CPU paddle, keep the ball in play, and race to five points.
+Neon Paddle transforms the classic browser ping-pong prototype into a full-screen arena with modern effects, adaptive AI, and punchy audio.
+
+## Highlights
+- Full-screen neon arena with dynamic lighting, particle bursts, and ball trails.
+- Three difficulty tiers (Chill, Arcade, Pro) with smarter AI, faster volleys, and stat tracking.
+- Keyboard, mouse, and touch control support with pause and resume on blur.
+- Live HUD with rally stats, match toasts, countdown serves, and post-game summary.
+- Lightweight Web Audio effects for hits, walls, scoring, and match finales.
 
 ## Getting Started
+1. Open `index.html` in a modern desktop browser or serve the directory (`npx serve`).
+2. Pick a difficulty and start the match. The game remembers the current settings until you change them.
+3. Use the on-screen buttons to pause, toggle fullscreen, or mute sound.
 
-1. Open `index.html` in a modern desktop browser, or serve the folder with any static file server (for example `npx serve` from this directory).
-2. Click **Start** to serve the ball.
-3. Use the **Up** and **Down** arrow keys (or **W/S**) to move your paddle.
+## Controls
+- Move paddle: Arrow keys or W / S.
+- Pointer or touch: Drag or swipe within the arena.
+- Pause or resume: Spacebar, the pause button, or focus loss.
+- Toggle fullscreen: F or the fullscreen button.
+- Mute audio: M or the sound button.
 
-## Gameplay Notes
+## Tech Notes
+- Canvas renders the arena at 1280x720 and scales to any viewport while preserving aspect ratio.
+- Adaptive AI predicts ball paths with difficulty-specific speed, reaction, and error tuning.
+- Web Audio API builds the entire soundscape without external assets.
+- Styles rely on modern CSS (flexbox, grid, clamp) with dark-mode friendly colors.
 
-- Games are first to five points; the scoreboard updates automatically.
-- The CPU paddle tracks the ball with a small delay, giving you room to outmaneuver it.
-- The match pauses if you switch tabs or hit the **Pause** button, so you never lose momentum accidentally.
-
-## Tech Stack
-
-- HTML5 canvas for drawing the table, paddles, and ball.
-- Modern ES modules (`app.js`) with a tiny event loop for animation.
-- Responsive layout and styling in `styles.css`.
+Have feedback or ideas for the next polish pass? Pop open an issue or tweak away.

@@ -2,34 +2,83 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ping Pong</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta name="theme-color" content="#04122a">
+    <title>Neon Paddle - Futuristic Ping Pong</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <header class="site-header">
-        <h1>Ping Pong</h1>
-        <p class="tagline">A fast-paced paddle duel right in your browser.</p>
-    </header>
-    <main class="page">
-        <section class="game" aria-label="Ping pong game">
-            <canvas id="game-canvas" width="720" height="420" role="img" aria-label="Ping pong table"></canvas>
-            <div class="hud" role="status">
-                <div class="scores">
-                    <span class="score" data-side="left"><strong>CPU</strong> <span id="left-score">0</span></span>
-                    <span class="score" data-side="right"><strong>You</strong> <span id="right-score">0</span></span>
+    <div id="game-root" class="game-root">
+        <canvas id="game-canvas" width="1280" height="720" role="img" aria-label="Futuristic ping pong arena with neon lighting"></canvas>
+        <div class="ui-layer" id="ui-layer">
+            <header class="hud" aria-live="polite">
+                <div class="scoreboard">
+                    <div class="score-block" data-side="cpu">
+                        <span class="score-label">CPU</span>
+                        <span class="score-value" id="score-left">0</span>
+                    </div>
+                    <div class="score-meta">
+                        <p class="match-info" id="match-info">Race to 11 points.</p>
+                        <p class="rally-info" id="rally-info">Current rally: 0 | Longest: 0</p>
+                    </div>
+                    <div class="score-block" data-side="player">
+                        <span class="score-label">You</span>
+                        <span class="score-value" id="score-right">0</span>
+                    </div>
                 </div>
-                <div class="controls">
-                    <button id="toggle" type="button">Start</button>
-                    <p class="keys">Use Up / Down arrows to move your paddle.</p>
+                <div class="hud-controls">
+                    <button type="button" id="pause-button" class="ghost">Pause</button>
+                    <button type="button" id="sound-button" aria-pressed="false" class="ghost">Sound: On</button>
+                    <button type="button" id="fullscreen-button" class="ghost">Fullscreen</button>
                 </div>
-                <p class="status" id="status-message">First to 5 points wins.</p>
+            </header>
+
+            <div class="toast" id="toast" role="status" aria-live="assertive" hidden></div>
+            <div class="countdown" id="countdown" aria-live="assertive"></div>
+
+            <div class="overlay is-active" id="overlay" role="dialog" aria-modal="true">
+                <div class="panel panel-menu" data-screen="menu">
+                    <h1>Neon Paddle</h1>
+                    <p class="lead">Face an adaptive opponent in a neon-lit arena. Rally, smash, and claim the match.</p>
+                    <div class="difficulty-picker" role="group" aria-label="Select difficulty">
+                        <button type="button" class="difficulty-button is-active" data-difficulty="chill">Chill</button>
+                        <button type="button" class="difficulty-button" data-difficulty="arcade">Arcade</button>
+                        <button type="button" class="difficulty-button" data-difficulty="pro">Pro</button>
+                    </div>
+                    <p class="difficulty-description" id="difficulty-description">Chill keeps things relaxed with a forgiving CPU and slower volleys.</p>
+                    <button type="button" id="start-button" class="primary">Start Match</button>
+                    <ul class="controls-list">
+                        <li>Move with Arrow keys or W / S.</li>
+                        <li>Drag mouse or touch the arena to guide your paddle.</li>
+                        <li>Space or Pause button to pause mid rally.</li>
+                    </ul>
+                </div>
+
+                <div class="panel panel-pause" data-screen="pause" hidden>
+                    <h2>Paused</h2>
+                    <p id="pause-message">Take a breather. The rally resumes when you are ready.</p>
+                    <div class="panel-actions">
+                        <button type="button" id="resume-button" class="primary">Resume</button>
+                        <button type="button" id="restart-button">Restart Match</button>
+                    </div>
+                </div>
+
+                <div class="panel panel-gameover" data-screen="gameover" hidden>
+                    <h2 id="gameover-title">Match Complete</h2>
+                    <p id="gameover-subtitle">You claimed the victory.</p>
+                    <ul class="stats-list">
+                        <li>Longest rally: <span id="stat-longest">0</span> hits</li>
+                        <li>Average rally: <span id="stat-average">0</span> hits</li>
+                        <li>Smashes landed: <span id="stat-smashes">0</span></li>
+                    </ul>
+                    <div class="panel-actions">
+                        <button type="button" id="play-again-button" class="primary">Play Again</button>
+                        <button type="button" id="change-difficulty-button">Change Difficulty</button>
+                    </div>
+                </div>
             </div>
-        </section>
-    </main>
-    <footer class="site-footer">
-        <small>Pause anytime with the Start button.</small>
-    </footer>
+        </div>
+    </div>
     <script type="module" src="app.js"></script>
 </body>
 </html>

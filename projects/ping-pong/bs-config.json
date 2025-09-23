@@ -1,0 +1,10 @@
+{
+    "port": 5173,
+    "files": ["./**/*.{html,htm,css,js}"],
+    "server": {
+        "baseDir": "./",
+        "middleware": {
+            "1": null
+        }
+    }
+}

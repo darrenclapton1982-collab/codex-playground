@@ -1,0 +1,23 @@
+{
+  "name": "city-simulator",
+  "version": "1.0.0",
+  "description": "Procedurally generated city and simulation with Three.js and simplex-noise.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "procedural",
+    "city",
+    "threejs",
+    "simulation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "simplex-noise": "^4.0.3",
+    "three": "^0.180.0"
+  },
+  "type": "module"
+}

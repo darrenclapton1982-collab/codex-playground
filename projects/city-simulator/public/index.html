@@ -1,0 +1,107 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Procedural City Simulator</title>
+  <link rel="stylesheet" href="./styles/main.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="city-canvas"></canvas>
+    <section class="hud">
+      <div class="panel panel--primary">
+        <header>
+          <h1>City Simulator</h1>
+          <div class="mode-switch">
+            <button data-mode="procedural" class="active">Procedural</button>
+            <button data-mode="sandbox">Sandbox</button>
+          </div>
+        </header>
+        <div class="generation-controls">
+          <label>
+            City Seed
+            <input type="text" id="seed-input" placeholder="random" autocomplete="off" />
+          </label>
+          <label>
+            Density
+            <input type="range" id="density-slider" min="0.2" max="1.5" step="0.05" value="1" />
+          </label>
+          <label>
+            Road Complexity
+            <input type="range" id="road-slider" min="0.2" max="1.2" step="0.05" value="1" />
+          </label>
+          <div class="actions-inline">
+            <button id="regenerate-btn">Regenerate</button>
+            <button id="randomize-btn">Random Seed</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel--stats">
+        <header>
+          <h2>City Metrics</h2>
+        </header>
+        <div class="stats-grid">
+          <div>
+            <span class="label">Population</span>
+            <span class="value" data-stat="population">-</span>
+          </div>
+          <div>
+            <span class="label">Capacity</span>
+            <span class="value" data-stat="capacity">-</span>
+          </div>
+          <div>
+            <span class="label">GDP</span>
+            <span class="value" data-stat="gdp">-</span>
+          </div>
+          <div>
+            <span class="label">Tax Revenue</span>
+            <span class="value" data-stat="tax">-</span>
+          </div>
+          <div>
+            <span class="label">Traffic</span>
+            <span class="value" data-stat="traffic">-</span>
+          </div>
+          <div>
+            <span class="label">Weather</span>
+            <span class="value" data-stat="weather">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel--sandbox">
+        <header>
+          <h2>Sandbox Tools</h2>
+        </header>
+        <div class="tool-grid">
+          <button data-tool="road" class="tool-btn">Road</button>
+          <button data-tool="residential" class="tool-btn">Residential</button>
+          <button data-tool="commercial" class="tool-btn">Commercial</button>
+          <button data-tool="industrial" class="tool-btn">Industrial</button>
+          <button data-tool="park" class="tool-btn">Park</button>
+          <button data-tool="clear" class="tool-btn">Clear</button>
+        </div>
+        <div class="simulation-controls">
+          <label>
+            Simulation Speed
+            <input type="range" id="speed-slider" min="10" max="240" step="10" value="60" />
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="weather-toggle" checked />
+            <span>Dynamic Weather</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="daynight-toggle" checked />
+            <span>Day &amp; Night Cycle</span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <div class="notifications" id="notification-feed"></div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
