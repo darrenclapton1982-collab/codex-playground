@@ -1,38 +1,33 @@
-# Space Invaders Prototype
+# Space Invaders 3JS Mobile
 
-A full-screen, feature-rich Space Invaders remake showcasing the repo workflow. The game now layers dynamic nebulae, parallax grids, particle storms, synth audio, boss encounters, elite invaders, collectible power cores, and responsive scaling for a spectacle that feels alive.
+A fully featured, mobile-friendly Space Invaders remake that runs on top of Three.js with an orthographic 2D view. The game adds touch pads, HUD controls, rapid + spread fire power cores, shields, elite invaders, and persistent highscores so you can chase points on phones or desktops alike.
 
-## Feature Highlights
+## Features
 
-- Immersive full-screen canvas with animated nebulae, parallax starfield, and energy grid
-- Difficulty presets influence wave size, elite probability, combo forgiveness, and rewards
-- Diverse invader cast (strikers, tanks, sappers, wardens, snipers) plus boss fights every 5th wave
-- Power cores (shield, overdrive, pierce, wingmen) with timers and HUD readouts
-- Combo multiplier system with camera shake, particle showers, and score boosts
-- Persistent high score, shield tracking, drone wingmen, bullet trails, and pause/fullscreen controls
-- Lightweight Web Audio soundtrack + synth SFX triggered during play
+- Three.js powered 2D scene with parallax stars and holographic grid
+- Difficulty presets that scale wave size, speed, and bomb frequency
+- Elite invaders with extra health and score multipliers
+- Player power cores: shield boosts, rapid fire, and spread shots
+- On-screen mobile controls (strafe pads, fire button, pause)
+- Keyboard support (A/D or arrows to move, Space to fire, P to pause)
+- Responsive layout, fixed viewport scaling, and local high score tracking
 
 ## Layout
 
 ```
 projects/space-invaders/
-+-- app.js          # Bootstraps the game, handles resize/fullscreen, connects HUD
-+-- bs-config.json  # lite-server configuration
-+-- index.html      # Canvas and overlay HUD chrome
-+-- package.json    # npm scripts + dev dependency
-+-- styles.css      # Full-screen layout and HUD styling
-+-- src/
-    +-- audio.js    # Web Audio controller for music/SFX
-    +-- config.js   # Gameplay constants (difficulty, invaders, power-ups, visuals)
-    +-- controls.js # Keyboard bindings
-    +-- entities.js # Factories for ships, background, power-ups, boss, particles
-    +-- game.js     # State machine, loop, collisions, combo logic, audio hooks
-    +-- render.js   # Canvas drawing of background, actors, HUD overlays
+├─ index.html      # Canvas, HUD, mobile controls
+├─ styles.css      # Responsive neon-inspired UI and pads
+├─ app.js          # Wires UI and starts the game
+└─ src/
+   ├─ config.js    # Gameplay constants and tuning
+   ├─ controls.js  # Keyboard + touch input manager
+   └─ game.js      # Three.js game loop, waves, collisions
 ```
 
 ## Running
 
-Install dependencies (already run by the scaffold script, but safe to repeat):
+Install dependencies (lite-server for dev serving; Three.js is loaded from CDN):
 
 ```
 npm install
@@ -44,13 +39,4 @@ Start the dev server:
 npm run dev
 ```
 
-Visit http://localhost:5173 in your browser. Allow audio playback and hit the Fullscreen button for the most immersive experience.
-
-## Controls
-
-- Move with arrow keys or `A` / `D`
-- Fire with the space bar
-- Pause/resume with `P` or `Esc`
-- Collect power cores by flying into them (wingmen auto-fire once active)
-
-Combo chains, elite waves, and the nebula boss are tuned to reward aggressive but agile play�keep the streak alive to chase absurd scores.
+Open http://localhost:5173 to play. Tap the pads or use your keyboard to clear waves and climb the leaderboard.
