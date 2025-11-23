@@ -1,882 +1,525 @@
+import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 import {
-    AUDIO_CONFIG,
-    BOSS_CONFIG,
-    CAMERA_CONFIG,
-    COMBO_CONFIG,
-    difficultyPresets,
-    HIGH_SCORE_KEY,
-    PLAYER_LIMITS,
-    TRAIL_CONFIG
+    WORLD_HEIGHT,
+    COLORS,
+    DIFFICULTIES,
+    POWERUP_TYPES,
+    PLAYER,
+    INVADERS,
+    BOMB_SPEED,
+    POWERUP_FALL_SPEED,
+    SHIELD_MAX
 } from "./config.js";
-import {
-    createBackground,
-    createPlayer,
-    createPowerUp,
-    createStars,
-    decayTrail,
-    makeDroneShot,
-    makeEnemyShot,
-    makePlayerShot,
-    resetPlayerPosition,
-    spawnBoss,
-    spawnParticles,
-    spawnWave,
-    updateBackground,
-    updateParticles,
-    updateStars,
-    updateTrail
-} from "./entities.js";
-import { createKeyboardControls } from "./controls.js";
-import { drawScene } from "./render.js";
-import { createAudioController } from "./audio.js";
 
-export function createSpaceInvadersGame(dom) {
-    const {
-        canvas,
-        startButton,
-        pauseButton,
-        fullscreenButton,
-        difficultySelect,
-        hud: { scoreValue, livesValue, waveValue, highScoreValue, shieldValue, powerUpReadout },
-        statusMessage
-    } = dom;
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-        console.warn("Space Invaders: canvas context unavailable.");
-        return { destroy: () => {}, resize: () => {} };
+function createRectMesh(width, height, color) {
+    const geometry = new THREE.PlaneGeometry(width, height);
+    const material = new THREE.MeshBasicMaterial({ color });
+    return new THREE.Mesh(geometry, material);
+}
+
+function createStarfield() {
+    const starGeometry = new THREE.BufferGeometry();
+    const starCount = 800;
+    const positions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 400;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 250;
+        positions[i * 3 + 2] = -50 - Math.random() * 50;
     }
+    starGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.8, transparent: true, opacity: 0.8 });
+    return new THREE.Points(starGeometry, starMaterial);
+}
 
-    const audio = createAudioController(AUDIO_CONFIG);
-    const unlockAudio = () => {
-        audio.unlock();
-    };
-    const pointerUnlock = () => {
-        unlockAudio();
-        document.removeEventListener("pointerdown", pointerUnlock);
-        document.removeEventListener("keydown", keyUnlock);
-    };
-    const keyUnlock = () => {
-        unlockAudio();
-        document.removeEventListener("pointerdown", pointerUnlock);
-        document.removeEventListener("keydown", keyUnlock);
-    };
-    document.addEventListener("pointerdown", pointerUnlock);
-    document.addEventListener("keydown", keyUnlock);
-
-    let width = canvas.width;
-    let height = canvas.height;
-
-    let background = createBackground(width, height);
-    let stars = createStars(width, height);
-    const player = createPlayer(width, height);
-    const keys = new Set();
-
-    let preset = difficultyPresets[difficultySelect.value] || difficultyPresets.standard;
-    let invaders = [];
-    let playerShots = [];
-    let enemyShots = [];
-    let powerUps = [];
-    let particles = [];
-    let drones = [];
-    let boss = null;
-    let flash = null;
-    let totalTime = 0;
-
-    let running = false;
-    let paused = false;
-    let score = 0;
-    let lives = 3;
-    let wave = 1;
-    let baseCooldown = preset.playerCooldown;
-    let playerCooldown = 0;
-    let enemyFireTimer = 0;
-    let enemyShotSpeed = preset.enemyShotSpeedBase;
-    let enemyFireInterval = preset.enemyFireIntervalBase;
-    let lastTimestamp = 0;
-    let highScore = loadHighScore();
-
-    let comboTimer = 0;
-    let comboMultiplier = 1;
-    let comboHits = 0;
-
-    let cameraShake = null;
-
-    const detachKeyboard = createKeyboardControls(keys, {
-        firePlayerShot,
-        togglePause: () => togglePause()
+function createGridGlow(width, height) {
+    const geometry = new THREE.PlaneGeometry(width, height, 10, 10);
+    const material = new THREE.MeshBasicMaterial({
+        color: 0x0d1b46,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.15
     });
-    const handleWindowBlur = () => togglePause(true);
-    window.addEventListener("blur", handleWindowBlur);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.z = -20;
+    return mesh;
+}
 
-    const handlePauseClick = () => togglePause();
-    const handleDifficultyChange = () => {
-        applyDifficulty(difficultySelect.value);
-        if (!running) {
-            statusMessage.textContent = `Difficulty set to ${difficultySelect.value}.`;
-        }
-    };
+function aabbCollide(a, b) {
+    return (
+        Math.abs(a.position.x - b.position.x) * 2 < a.size.w + b.size.w &&
+        Math.abs(a.position.y - b.position.y) * 2 < a.size.h + b.size.h
+    );
+}
 
-    const toggleFullscreen = () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen()?.catch(() => {
-                statusMessage.textContent = "Fullscreen request blocked.";
-            });
-        } else {
-            document.exitFullscreen()?.catch(() => {
-                statusMessage.textContent = "Could not exit fullscreen.";
-            });
-        }
-    };
+function rollPowerup() {
+    const roll = Math.random();
+    let cursor = 0;
+    for (const item of POWERUP_TYPES) {
+        cursor += item.chance;
+        if (roll <= cursor) return item;
+    }
+    return null;
+}
 
-    startButton.addEventListener("click", startGame);
-    pauseButton.addEventListener("click", handlePauseClick);
-    difficultySelect.addEventListener("change", handleDifficultyChange);
-    fullscreenButton.addEventListener("click", toggleFullscreen);
+export function createSpaceInvadersGame(canvas, hud, input, statusCallback) {
+    return new SpaceInvadersGame(canvas, hud, input, statusCallback);
+}
 
-    pauseButton.disabled = true;
-    pauseButton.setAttribute("aria-pressed", "false");
-    updateHud();
-    drawScene(ctx, buildRenderState());
+class SpaceInvadersGame {
+    constructor(canvas, hud, input, statusCallback = () => {}) {
+        this.canvas = canvas;
+        this.hud = hud;
+        this.input = input;
+        this.statusCallback = statusCallback;
+        this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        this.renderer.setClearColor(COLORS.backdrop, 1);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.OrthographicCamera();
+        this.viewHeight = WORLD_HEIGHT;
+        this.viewWidth = WORLD_HEIGHT;
+        this.running = false;
+        this.paused = false;
+        this.entities = { invaders: [], bullets: [], bombs: [], powerups: [] };
+        this.effects = [];
+        this.invaderDirection = 1;
+        this.invaderSpeed = 4;
+        this.lastTime = 0;
+        this.fireCooldown = PLAYER.baseFireCooldown;
+        this.fireTimer = 0;
+        this.wave = 1;
+        this.score = 0;
+        this.lives = 3;
+        this.shield = 0;
+        this.powerTimers = { rapid: 0, spread: 0 };
+        this.difficultyKey = "standard";
+        this.highScore = Number(localStorage.getItem("space-invaders-highscore") || 0);
+        this.player = this.createPlayer();
 
-    function buildRenderState() {
+        this.starfield = createStarfield();
+        this.grid = createGridGlow(260, 160);
+        this.scene.add(this.starfield);
+        this.scene.add(this.grid);
+        this.scene.add(this.player.mesh);
+
+        this.resize = this.resize.bind(this);
+        this.loop = this.loop.bind(this);
+        window.addEventListener("resize", this.resize);
+        this.resize();
+        this.updateHud();
+    }
+
+    resize() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        this.renderer.setSize(width, height, false);
+        const aspect = width / height;
+        this.viewHeight = WORLD_HEIGHT;
+        this.viewWidth = this.viewHeight * aspect;
+        this.camera.left = -this.viewWidth / 2;
+        this.camera.right = this.viewWidth / 2;
+        this.camera.top = this.viewHeight / 2;
+        this.camera.bottom = -this.viewHeight / 2;
+        this.camera.position.set(0, 0, 200);
+        this.camera.updateProjectionMatrix();
+        this.bounds = {
+            left: -this.viewWidth / 2 + 6,
+            right: this.viewWidth / 2 - 6,
+            top: this.viewHeight / 2,
+            bottom: -this.viewHeight / 2 + 4
+        };
+    }
+
+    createPlayer() {
+        const mesh = createRectMesh(PLAYER.size.w, PLAYER.size.h, COLORS.player);
+        mesh.position.y = -WORLD_HEIGHT / 2 + 12;
         return {
-            width,
-            height,
-            stars,
-            background,
-            player,
-            invaders,
-            playerShots,
-            enemyShots,
-            powerUps,
-            boss,
-            particles,
-            flash,
-            drones,
-            time: totalTime,
-            combo: comboMultiplier > 1 ? { multiplier: comboMultiplier } : null,
-            cameraShake
+            mesh,
+            size: { ...PLAYER.size },
+            position: mesh.position,
+            cooldown: PLAYER.baseFireCooldown
         };
     }
 
-    function loadHighScore() {
-        try {
-            const stored = window.localStorage?.getItem(HIGH_SCORE_KEY);
-            return stored ? Number(stored) || 0 : 0;
-        } catch (error) {
-            console.warn("Space Invaders: unable to read high score", error);
-            return 0;
+    spawnWave() {
+        this.clearEntities();
+        const difficulty = DIFFICULTIES[this.difficultyKey];
+        const totalWidth = (INVADERS.size.w + INVADERS.spacing.x) * difficulty.invaderColumns;
+        const startX = -totalWidth / 2 + INVADERS.size.w / 2;
+        const startY = this.viewHeight / 2 - 20;
+        this.invaderDirection = 1;
+        this.invaderSpeed = difficulty.invaderSpeed + this.wave * 0.2;
+
+        for (let row = 0; row < difficulty.invaderRows; row++) {
+            for (let col = 0; col < difficulty.invaderColumns; col++) {
+                const isElite = Math.random() < INVADERS.elite.chance;
+                const invader = {
+                    mesh: createRectMesh(INVADERS.size.w, INVADERS.size.h, isElite ? COLORS.elite : COLORS.invader),
+                    size: { ...INVADERS.size },
+                    position: new THREE.Vector3(
+                        startX + col * (INVADERS.size.w + INVADERS.spacing.x),
+                        startY - row * (INVADERS.size.h + INVADERS.spacing.y),
+                        0
+                    ),
+                    velocity: new THREE.Vector2(this.invaderSpeed * (isElite ? INVADERS.elite.speedBoost : 1), 0),
+                    health: isElite ? INVADERS.elite.health : INVADERS.baseHealth,
+                    score: isElite ? INVADERS.elite.score : INVADERS.score,
+                    elite: isElite
+                };
+                invader.mesh.position.copy(invader.position);
+                this.entities.invaders.push(invader);
+                this.scene.add(invader.mesh);
+            }
         }
     }
 
-    function setHighScore(value) {
-        highScore = value;
-        highScoreValue.textContent = String(highScore);
-        try {
-            window.localStorage?.setItem(HIGH_SCORE_KEY, String(highScore));
-        } catch (error) {
-            console.warn("Space Invaders: unable to store high score", error);
-        }
-    }
-
-    function updateComboHud() {
-        if (comboMultiplier > 1) {
-            statusMessage.textContent = `Combo x${comboMultiplier.toFixed(2)} � keep the streak!`;
-        }
-    }
-
-    function resetCombo() {
-        comboMultiplier = 1;
-        comboHits = 0;
-        comboTimer = 0;
-    }
-
-    function rewardCombo() {
-        comboHits += 1;
-        comboMultiplier = Math.min(COMBO_CONFIG.maxMultiplier, 1 + comboHits * COMBO_CONFIG.multiplierStep);
-        comboTimer = preset.comboForgiveness;
-        score += COMBO_CONFIG.rewardPerStep * (comboMultiplier - 1);
-        addCameraShake(8);
-        updateComboHud();
-    }
-
-    function formatTimer(seconds) {
-        return `${seconds.toFixed(0)}s`;
-    }
-
-    function updatePowerUpHud() {
-        const chips = [];
-        if (player.rapidTimer > 0) {
-            chips.push(`<span class="powerup-chip" data-type="overdrive">Overdrive ${formatTimer(player.rapidTimer)}</span>`);
-        }
-        if (player.doubleTimer > 0) {
-            chips.push(`<span class="powerup-chip" data-type="overdrive">Double ${formatTimer(player.doubleTimer)}</span>`);
-        }
-        if (player.pierceTimer > 0) {
-            chips.push(`<span class="powerup-chip" data-type="pierce">Pierce ${formatTimer(player.pierceTimer)}</span>`);
-        }
-        if (player.droneTimer > 0) {
-            chips.push(`<span class="powerup-chip" data-type="shield">Wingmen ${formatTimer(player.droneTimer)}</span>`);
-        }
-        if (chips.length) {
-            powerUpReadout.innerHTML = chips.join(" ");
-        } else {
-            powerUpReadout.textContent = "None";
-        }
-    }
-
-    function updateHud() {
-        scoreValue.textContent = String(Math.floor(score));
-        livesValue.textContent = String(lives);
-        waveValue.textContent = String(wave);
-        highScoreValue.textContent = String(highScore);
-        shieldValue.textContent = `${player.shield}/${player.maxShield}`;
-        updatePowerUpHud();
-    }
-
-    function applyDifficulty(key) {
-        preset = difficultyPresets[key] || difficultyPresets.standard;
-        player.speed = preset.playerSpeed;
-        baseCooldown = preset.playerCooldown;
-        if (!running) {
-            enemyFireInterval = preset.enemyFireIntervalBase;
-            enemyShotSpeed = preset.enemyShotSpeedBase;
-        }
-    }
-
-    function spawnEncounter() {
-        const isBossWave = wave % BOSS_CONFIG.waveInterval === 0;
-        if (isBossWave) {
-            boss = spawnBoss(width, wave);
-            invaders = [];
-            statusMessage.textContent = `Boss wave! Target core at ${boss.health} HP.`;
-        } else {
-            boss = null;
-            invaders = spawnWave(width, wave, preset);
-            statusMessage.textContent = `Wave ${wave} inbound.`;
-        }
-        enemyFireTimer = 0;
-        enemyShotSpeed = preset.enemyShotSpeedBase + (wave - 1) * preset.enemyShotSpeedRamp;
-        enemyFireInterval = Math.max(
-            preset.enemyFireIntervalFloor,
-            preset.enemyFireIntervalBase - (wave - 1) * preset.enemyFireIntervalStep
+    clearEntities() {
+        [...this.entities.invaders, ...this.entities.bullets, ...this.entities.bombs, ...this.entities.powerups].forEach(
+            (entity) => this.scene.remove(entity.mesh)
         );
+        this.entities = { invaders: [], bullets: [], bombs: [], powerups: [] };
     }
 
-    function addCameraShake(intensity = CAMERA_CONFIG.shakeIntensity) {
-        cameraShake = {
-            magnitude: intensity,
-            offsetX: 0,
-            offsetY: 0
-        };
+    start(difficultyKey = "standard") {
+        this.difficultyKey = difficultyKey;
+        this.wave = 1;
+        this.score = 0;
+        this.lives = 3;
+        this.shield = 0;
+        this.powerTimers = { rapid: 0, spread: 0 };
+        this.player.mesh.position.x = 0;
+        this.spawnWave();
+        this.running = true;
+        this.paused = false;
+        this.fireCooldown = PLAYER.baseFireCooldown;
+        this.lastTime = performance.now();
+        this.statusCallback("Wave one incoming. Good luck!");
+        this.updateHud();
+        requestAnimationFrame(this.loop);
     }
 
-    function firePlayerShot() {
-        if (playerCooldown > 0 || !running || paused) {
-            return;
+    loop(timestamp) {
+        if (!this.running) return;
+        const delta = Math.min((timestamp - this.lastTime) / 1000, 0.05);
+        this.lastTime = timestamp;
+        if (!this.paused) {
+            this.update(delta);
+            this.renderer.render(this.scene, this.camera);
         }
-        audio.playShoot();
-        const baseSpeed = player.pierceTimer > 0 ? 760 : 640;
-        const damage = player.pierceTimer > 0 ? 2 : 1;
-        const pierce = player.pierceTimer > 0;
-        const offset = player.doubleTimer > 0 ? 14 : 0;
-        if (player.doubleTimer > 0) {
-            playerShots.push(makePlayerShot(player, -offset, baseSpeed, damage, pierce));
-            playerShots.push(makePlayerShot(player, offset, baseSpeed, damage, pierce));
-        } else {
-            playerShots.push(makePlayerShot(player, 0, baseSpeed, damage, pierce));
-        }
-        const cooldownModifier = player.rapidTimer > 0 ? 0.45 : 1;
-        playerCooldown = baseCooldown * cooldownModifier;
-        updateTrail(player.trail, player);
+        requestAnimationFrame(this.loop);
     }
 
-    function fireDroneShots() {
-        if (!drones.length) {
-            return;
-        }
-        drones.forEach((drone) => {
-            playerShots.push(makeDroneShot(drone));
-        });
-        audio.playShoot(0.15);
+    update(delta) {
+        this.parallaxBackground(delta);
+        this.updatePlayer(delta);
+        this.updateBullets(delta);
+        this.updateBombs(delta);
+        this.updateInvaders(delta);
+        this.updatePowerups(delta);
+        this.updateEffects(delta);
+        this.checkWaveClear();
+        this.updateHud();
     }
 
-    function fireEnemyShot(invaderOverride) {
-        if (boss) {
-            fireBossShot();
-            return;
-        }
+    parallaxBackground(delta) {
+        this.starfield.rotation.z += delta * 0.02;
+        this.grid.rotation.z -= delta * 0.012;
+    }
 
-        if (!invaders.length) {
-            return;
-        }
+    updatePlayer(delta) {
+        const inputState = this.input.getState();
+        let direction = 0;
+        if (inputState.left) direction -= 1;
+        if (inputState.right) direction += 1;
+        this.player.position.x += direction * PLAYER.speed * delta;
+        this.player.position.x = clamp(this.player.position.x, this.bounds.left, this.bounds.right);
 
-        const columns = new Map();
-        invaders.forEach((inv) => {
-            const current = columns.get(inv.columnIndex);
-            if (!current || inv.y > current.y) {
-                columns.set(inv.columnIndex, inv);
-            }
-        });
-        const shooters = Array.from(columns.values());
-        if (!shooters.length) {
-            return;
+        this.fireTimer -= delta;
+        let cooldown = PLAYER.baseFireCooldown;
+        if (this.powerTimers.rapid > 0) {
+            this.powerTimers.rapid -= delta;
+            cooldown *= 0.5;
         }
-        const shooter = invaderOverride || shooters[Math.floor(Math.random() * shooters.length)];
-        if (shooter.type.precision) {
-            const originX = shooter.x + shooter.width / 2;
-            const originY = shooter.y + shooter.height;
-            const targetX = player.x + player.width / 2;
-            const targetY = player.y + player.height / 2;
-            const dx = targetX - originX;
-            const dy = targetY - originY;
-            const distance = Math.hypot(dx, dy) || 1;
-            const vx = (dx / distance) * enemyShotSpeed * shooter.type.fireScale;
-            const vy = (dy / distance) * enemyShotSpeed * shooter.type.fireScale;
-            enemyShots.push(makeEnemyShot(shooter, enemyShotSpeed, 6, 18, vx, vy));
-        } else {
-            const shotSpeed = enemyShotSpeed * shooter.type.fireScale;
-            enemyShots.push(makeEnemyShot(shooter, shotSpeed));
+        if (this.powerTimers.spread > 0) {
+            this.powerTimers.spread -= delta;
+        }
+        this.fireCooldown = cooldown;
+
+        if (inputState.fire && this.fireTimer <= 0) {
+            this.firePlayerBullets();
+            this.fireTimer = this.fireCooldown;
         }
     }
 
-    function fireBossShot() {
-        const originX = boss.x + boss.width / 2;
-        const originY = boss.y + boss.height;
-        const targetX = player.x + player.width / 2;
-        const targetY = player.y + player.height / 2;
-        const dx = targetX - originX;
-        const dy = targetY - originY;
-        const distance = Math.hypot(dx, dy) || 1;
-        const projectileSpeed = 320 + wave * 8;
-        enemyShots.push({
-            x: originX - 6,
-            y: originY,
-            width: 12,
-            height: 28,
-            vx: (dx / distance) * projectileSpeed,
-            vy: (dy / distance) * projectileSpeed,
-            speed: projectileSpeed
-        });
-    }
+    firePlayerBullets() {
+        const spreadActive = this.powerTimers.spread > 0;
+        const bullets = spreadActive
+            ? [
+                  { x: this.player.position.x - 1.5, y: this.player.position.y, vx: -12, vy: PLAYER.bulletSpeed },
+                  { x: this.player.position.x, y: this.player.position.y, vx: 0, vy: PLAYER.bulletSpeed },
+                  { x: this.player.position.x + 1.5, y: this.player.position.y, vx: 12, vy: PLAYER.bulletSpeed }
+              ]
+            : [{ x: this.player.position.x, y: this.player.position.y, vx: 0, vy: PLAYER.bulletSpeed }];
 
-    function startGame() {
-        applyDifficulty(difficultySelect.value);
-        running = true;
-        paused = false;
-        score = 0;
-        totalTime = 0;
-        lives = 3;
-        wave = 1;
-        comboMultiplier = 1;
-        comboHits = 0;
-        comboTimer = 0;
-        keys.clear();
-        player.shield = PLAYER_LIMITS.baseShield;
-        player.rapidTimer = 0;
-        player.doubleTimer = 0;
-        player.pierceTimer = 0;
-        player.droneTimer = 0;
-        player.trail.length = 0;
-        playerShots = [];
-        enemyShots = [];
-        powerUps = [];
-        particles = [];
-        drones = [];
-        flash = null;
-        cameraShake = null;
-        updateHud();
-        resetPlayerPosition(player, width, height);
-        statusMessage.textContent = "Defend the sector!";
-        startButton.disabled = true;
-        pauseButton.disabled = false;
-        pauseButton.textContent = "Pause";
-        pauseButton.setAttribute("aria-pressed", "false");
-        difficultySelect.disabled = true;
-        spawnEncounter();
-        audio.start();
-        lastTimestamp = performance.now();
-        requestAnimationFrame((timestamp) => {
-            lastTimestamp = timestamp;
-            requestAnimationFrame(loop);
-        });
-    }
-
-    function endGame(didWin, message) {
-        running = false;
-        paused = false;
-        startButton.disabled = false;
-        pauseButton.disabled = true;
-        pauseButton.textContent = "Pause";
-        pauseButton.setAttribute("aria-pressed", "false");
-        difficultySelect.disabled = false;
-        statusMessage.textContent = message || (didWin ? "Sector secure!" : "Game over.");
-        checkHighScore();
-        audio.stopMusic();
-        drawScene(ctx, buildRenderState());
-    }
-
-    function loseLife(message, skipComboReset = false) {
-        if (!skipComboReset) {
-            resetCombo();
-        }
-        if (player.shield > 0) {
-            player.shield -= 1;
-            statusMessage.textContent = message ? `${message} Shield absorbed impact.` : "Shield absorbed the hit.";
-            updateHud();
-            audio.playHit();
-            return;
-        }
-
-        lives -= 1;
-        updateHud();
-        audio.playHit();
-        addCameraShake(18);
-        if (lives <= 0) {
-            endGame(false, message || "The fleet has fallen.");
-            return;
-        }
-        statusMessage.textContent = message ? `${message} ${lives} lives left.` : `${lives} lives remain.`;
-        resetPlayerPosition(player, width, height);
-        playerShots = [];
-        enemyShots = [];
-        playerCooldown = 0;
-    }
-
-    function advanceWave() {
-        wave += 1;
-        score += preset.waveBonus * comboMultiplier;
-        updateHud();
-        spawnEncounter();
-    }
-
-    function applyPowerUp(powerUp) {
-        audio.playPower();
-        switch (powerUp.type.key) {
-            case "shield":
-                player.shield = Math.min(player.maxShield, player.shield + 1);
-                break;
-            case "overdrive":
-                player.rapidTimer = Math.max(player.rapidTimer, powerUp.type.duration);
-                player.doubleTimer = Math.max(player.doubleTimer, powerUp.type.duration * 0.8);
-                break;
-            case "pierce":
-                player.pierceTimer = Math.max(player.pierceTimer, powerUp.type.duration);
-                break;
-            case "drone":
-                player.droneTimer = Math.max(player.droneTimer, powerUp.type.duration);
-                spawnDrones();
-                break;
-            default:
-                break;
-        }
-        updateHud();
-    }
-
-    function spawnDrones() {
-        const count = 2;
-        drones = Array.from({ length: count }, (_, i) => ({
-            angle: (Math.PI * 2 * i) / count,
-            radius: 48,
-            x: player.x,
-            y: player.y
-        }));
-    }
-
-    function handleBossDefeat() {
-        audio.playExplosion(0.5);
-        score += BOSS_CONFIG.score * comboMultiplier;
-        flash = { time: 0.4, duration: 0.4 };
-        boss = null;
-        particles.push(...spawnParticles(width / 2, height / 3, "rgba(250, 204, 21, 1)", { count: 40, speed: 420, life: 0.9 }));
-        statusMessage.textContent = "Boss neutralised!";
-        checkHighScore();
-        addCameraShake(22);
-        advanceWave();
-    }
-
-    function updatePowerUps(delta) {
-        for (let i = powerUps.length - 1; i >= 0; i -= 1) {
-            const powerUp = powerUps[i];
-            powerUp.y += powerUp.speed * delta;
-            if (powerUp.y > height + 60) {
-                powerUps.splice(i, 1);
-                continue;
-            }
-            if (intersects(powerUp, player)) {
-                powerUps.splice(i, 1);
-                applyPowerUp(powerUp);
-            }
-        }
-    }
-
-    function intersects(a, b) {
-        return (
-            a.x < b.x + b.width &&
-            a.x + a.width > b.x &&
-            a.y < b.y + b.height &&
-            a.y + a.height > b.y
-        );
-    }
-
-    function loop(timestamp) {
-        if (!running) {
-            return;
-        }
-
-        if (paused) {
-            lastTimestamp = timestamp;
-            requestAnimationFrame(loop);
-            return;
-        }
-
-        const delta = Math.min((timestamp - lastTimestamp) / 1000, 0.05);
-        lastTimestamp = timestamp;
-        totalTime += delta;
-
-        updateTimers(delta);
-        updateStars(stars, delta, height);
-        updateBackground(background, delta, width, height);
-        updateParticles(particles, delta);
-        updateFlash(delta);
-        updateMovement(delta);
-        handleShooting(delta);
-        handleCollisions();
-        cleanupEntities();
-
-        drawScene(ctx, buildRenderState());
-        requestAnimationFrame(loop);
-    }
-
-    function updateTimers(delta) {
-        playerCooldown = Math.max(0, playerCooldown - delta);
-        if (!boss) {
-            enemyFireTimer += delta;
-        }
-        if (player.rapidTimer > 0) {
-            player.rapidTimer = Math.max(0, player.rapidTimer - delta);
-        }
-        if (player.doubleTimer > 0) {
-            player.doubleTimer = Math.max(0, player.doubleTimer - delta);
-        }
-        if (player.pierceTimer > 0) {
-            player.pierceTimer = Math.max(0, player.pierceTimer - delta);
-        }
-        if (player.droneTimer > 0) {
-            player.droneTimer = Math.max(0, player.droneTimer - delta);
-            if (player.droneTimer <= 0) {
-                drones = [];
-            }
-        }
-        if (comboTimer > 0) {
-            comboTimer -= delta;
-            if (comboTimer <= 0) {
-                resetCombo();
-            }
-        }
-        updateHud();
-    }
-
-    function updateFlash(delta) {
-        if (flash) {
-            flash.time -= delta;
-            if (flash.time <= 0) {
-                flash = null;
-            }
-        }
-        if (cameraShake && cameraShake.magnitude > 0) {
-            cameraShake.magnitude = Math.max(0, cameraShake.magnitude - CAMERA_CONFIG.shakeFalloff);
-            cameraShake.offsetX = (Math.random() - 0.5) * cameraShake.magnitude;
-            cameraShake.offsetY = (Math.random() - 0.5) * cameraShake.magnitude;
-            if (cameraShake.magnitude <= 0) {
-                cameraShake = null;
-            }
-        }
-    }
-
-    function updateMovement(delta) {
-        const padding = PLAYER_LIMITS.horizontalPadding;
-        const moveDistance = player.speed * delta;
-        if (keys.has("left")) {
-            player.x -= moveDistance;
-        }
-        if (keys.has("right")) {
-            player.x += moveDistance;
-        }
-        player.x = Math.min(width - player.width - padding, Math.max(padding, player.x));
-        decayTrail(player.trail, delta);
-
-        const invaderSpeed = preset.invaderSpeedBase + (wave - 1) * preset.invaderSpeedRamp;
-        invaders.forEach((inv) => {
-            inv.x += inv.type.speedScale * invaderSpeed * (inv.direction || 1) * delta;
-        });
-
-        if (invaders.length) {
-            let leftEdge = Infinity;
-            let rightEdge = -Infinity;
-            invaders.forEach((inv) => {
-                if (inv.x < leftEdge) {
-                    leftEdge = inv.x;
-                }
-                if (inv.x + inv.width > rightEdge) {
-                    rightEdge = inv.x + inv.width;
-                }
+        bullets.forEach((bullet) => {
+            const mesh = createRectMesh(1.2, 5, COLORS.bullet);
+            mesh.position.set(bullet.x, bullet.y + 4, 1);
+            this.scene.add(mesh);
+            this.entities.bullets.push({
+                mesh,
+                size: { w: 1.2, h: 5 },
+                position: mesh.position,
+                velocity: new THREE.Vector2(bullet.vx, bullet.vy)
             });
-            const boundaryLeft = padding;
-            const boundaryRight = width - padding;
-            if (leftEdge <= boundaryLeft || rightEdge >= boundaryRight) {
-                invaders.forEach((inv) => {
-                    inv.direction = -(inv.direction || 1);
-                    inv.y += preset.invaderDrop;
-                    inv.baseY = inv.y;
-                });
-            }
-        }
-
-        invaders.forEach((inv) => {
-            if (inv.type.zigzag) {
-                inv.zigzagPhase += delta * 3;
-                inv.y = inv.baseY + Math.sin(inv.zigzagPhase) * inv.type.zigzagAmplitude;
-            }
-            if (inv.type.kamikaze) {
-                inv.kamikazeCharge -= delta;
-                if (inv.kamikazeCharge <= 0 && !inv.diving) {
-                    inv.diving = true;
-                    inv.diveSpeed = 200 + wave * 12;
-                }
-                if (inv.diving) {
-                    const direction = inv.x + inv.width / 2 < player.x + player.width / 2 ? 1 : -1;
-                    inv.x += direction * inv.diveSpeed * 0.65 * delta;
-                    inv.y += inv.diveSpeed * delta;
-                }
-            }
-            if (inv.type.precision) {
-                inv.precisionLock -= delta;
-                if (inv.precisionLock <= 0) {
-                    fireEnemyShot(inv);
-                    inv.precisionLock = Math.random() * 2 + 1;
-                }
-            }
         });
+    }
 
-        if (boss) {
-            updateBoss(delta);
-        }
-
-        playerShots.forEach((shot) => {
-            shot.y -= shot.speed * delta;
+    updateBullets(delta) {
+        this.entities.bullets.forEach((bullet) => {
+            bullet.position.x += bullet.velocity.x * delta;
+            bullet.position.y += bullet.velocity.y * delta;
         });
-
-        enemyShots.forEach((shot) => {
-            const vy = shot.vy ?? shot.speed;
-            const vx = shot.vx ?? 0;
-            shot.x += vx * delta;
-            shot.y += vy * delta;
+        const outOfBounds = (b) => b.position.y > this.bounds.top + 10 || Math.abs(b.position.x) > this.bounds.right + 10;
+        this.entities.bullets = this.entities.bullets.filter((bullet) => {
+            if (outOfBounds(bullet)) {
+                this.scene.remove(bullet.mesh);
+                return false;
+            }
+            return true;
         });
+    }
 
-        if (drones.length) {
-            drones.forEach((drone, index) => {
-                drone.angle += delta * 2 + index * 0.35;
-                drone.x = player.x + player.width / 2 + Math.cos(drone.angle) * drone.radius;
-                drone.y = player.y + player.height / 2 + Math.sin(drone.angle) * (drone.radius * 0.65);
+    updateInvaders(delta) {
+        if (this.entities.invaders.length === 0) return;
+        let minX = Infinity;
+        let maxX = -Infinity;
+        this.entities.invaders.forEach((invader) => {
+            invader.position.x += invader.velocity.x * delta * this.invaderDirection;
+            minX = Math.min(minX, invader.position.x - invader.size.w / 2);
+            maxX = Math.max(maxX, invader.position.x + invader.size.w / 2);
+        });
+        const hitEdge = minX < this.bounds.left || maxX > this.bounds.right;
+        if (hitEdge) {
+            this.invaderDirection *= -1;
+            this.entities.invaders.forEach((invader) => {
+                invader.position.y -= DIFFICULTIES[this.difficultyKey].invaderDrop;
+                invader.position.x = clamp(invader.position.x, this.bounds.left, this.bounds.right);
             });
         }
 
-        updatePowerUps(delta);
-    }
-
-    function updateBoss(delta) {
-        if (!boss) {
-            return;
-        }
-        if (boss.rushing) {
-            boss.rushTimeLeft -= delta;
-            const targetX = player.x + player.width / 2;
-            boss.x += (targetX - (boss.x + boss.width / 2)) * 0.6 * delta;
-            boss.y += BOSS_CONFIG.rushSpeed * delta;
-            if (boss.rushTimeLeft <= 0 || boss.y > height * 0.55) {
-                boss.rushing = false;
-                boss.y = Math.max(120, Math.min(height * 0.45, boss.y));
+        const difficulty = DIFFICULTIES[this.difficultyKey];
+        this.entities.invaders.forEach((invader) => {
+            invader.mesh.position.copy(invader.position);
+            if (Math.random() < difficulty.bombs * delta) {
+                this.spawnBomb(invader);
             }
-        } else {
-            boss.x += boss.speed * boss.direction * delta;
-            if (boss.x <= 60 || boss.x + boss.width >= width - 60) {
-                boss.direction *= -1;
-            }
-            boss.fireTimer -= delta;
-            boss.rushTimer -= delta;
-            if (boss.fireTimer <= 0) {
-                fireBossShot();
-                boss.fireTimer = BOSS_CONFIG.fireInterval * (0.7 + Math.random() * 0.6);
-            }
-            if (boss.rushTimer <= 0) {
-                boss.rushing = true;
-                boss.rushTimeLeft = BOSS_CONFIG.rushDuration;
-                boss.rushTimer = BOSS_CONFIG.rushInterval + Math.random() * 3;
-            }
-        }
-        boss.x = Math.min(width - boss.width - 60, Math.max(60, boss.x));
-        boss.y = Math.max(80, Math.min(height * 0.6, boss.y));
+        });
 
-        if (intersects(boss, player)) {
-            loseLife("The core ship rammed you!", true);
-            boss.rushing = false;
-            boss.y = 120;
-        }
-    }
-
-    function handleShooting(delta) {
-        if (!boss && enemyFireTimer >= enemyFireInterval) {
-            fireEnemyShot();
-            enemyFireTimer = 0;
-        }
-    }
-
-    function handleCollisions() {
-        for (let i = playerShots.length - 1; i >= 0; i -= 1) {
-            const shot = playerShots[i];
-            if (shot.y + shot.height < 0) {
-                playerShots.splice(i, 1);
-                continue;
-            }
-
-            let hitSomething = false;
-            if (boss && intersects(shot, boss)) {
-                if (boss.shield > 0) {
-                    boss.shield -= shot.damage;
-                } else {
-                    boss.health -= shot.damage;
-                }
-                hitSomething = true;
-                if (!shot.pierce || --shot.penetration <= 0) {
-                    playerShots.splice(i, 1);
-                }
-                audio.playHit(0.2);
-                if (boss.health <= 0) {
-                    handleBossDefeat();
-                }
-                continue;
-            }
-
-            for (let j = invaders.length - 1; j >= 0; j -= 1) {
-                const inv = invaders[j];
-                if (intersects(shot, inv)) {
-                    if (inv.shield > 0) {
-                        inv.shield -= shot.damage;
-                        audio.playHit(0.15);
-                    } else {
-                        inv.health -= shot.damage;
-                        audio.playHit();
-                    }
-                    hitSomething = true;
-                    if (inv.health <= 0) {
-                        rewardCombo();
-                        score += inv.type.score * comboMultiplier;
-                        particles.push(...spawnParticles(inv.x + inv.width / 2, inv.y + inv.height / 2, "rgba(56, 189, 248, 1)"));
-                        checkHighScore();
-                        const dropChance = preset.powerUpChance * Math.min(1, wave / 8);
-                        if (Math.random() < dropChance) {
-                            powerUps.push(createPowerUp(inv.x + inv.width / 2 - 14, inv.y));
-                        }
-                        invaders.splice(j, 1);
-                        audio.playExplosion(0.25);
-                    }
-                    if (!shot.pierce || --shot.penetration <= 0) {
-                        playerShots.splice(i, 1);
+        // Collisions with player bullets
+        const remainingBullets = [];
+        this.entities.bullets.forEach((bullet) => {
+            let hit = false;
+            for (const invader of this.entities.invaders) {
+                if (aabbCollide(bullet, invader)) {
+                    invader.health -= 1;
+                    hit = true;
+                    this.spawnHitEffect(invader.position, invader.elite ? COLORS.elite : COLORS.invader);
+                    if (invader.health <= 0) {
+                        this.handleInvaderDestroyed(invader);
                     }
                     break;
                 }
             }
+            if (!hit) remainingBullets.push(bullet);
+            else this.scene.remove(bullet.mesh);
+        });
+        this.entities.bullets = remainingBullets;
 
-            if (hitSomething) {
-                updateHud();
-            }
-        }
-
-        for (let i = enemyShots.length - 1; i >= 0; i -= 1) {
-            const shot = enemyShots[i];
-            if (shot.y > height + 80 || shot.x < -120 || shot.x > width + 120) {
-                enemyShots.splice(i, 1);
+        // Remove fallen invaders
+        const filteredInvaders = [];
+        for (const invader of this.entities.invaders) {
+            if (invader.position.y < this.player.position.y - 6) {
+                this.hitPlayer();
+                this.scene.remove(invader.mesh);
                 continue;
             }
-            if (intersects(shot, player)) {
-                enemyShots.splice(i, 1);
-                loseLife("You took a hit!");
-            }
+            filteredInvaders.push(invader);
         }
+        this.entities.invaders = filteredInvaders;
+    }
 
-        invaders.forEach((inv) => {
-            if (inv.y + inv.height >= player.y - 6) {
-                loseLife("Invaders broke through!");
-                inv.y = player.y - inv.height - 12;
-            }
+    spawnBomb(invader) {
+        const mesh = createRectMesh(1.6, 5, COLORS.bomb);
+        mesh.position.copy(invader.position);
+        this.scene.add(mesh);
+        this.entities.bombs.push({
+            mesh,
+            size: { w: 1.6, h: 5 },
+            position: mesh.position,
+            velocity: new THREE.Vector2(0, -BOMB_SPEED)
         });
-
-        if (!boss && invaders.length === 0) {
-            statusMessage.textContent = "Wave cleared!";
-            advanceWave();
-        }
     }
 
-    function cleanupEntities() {
-        playerShots = playerShots.filter((shot) => shot.y + shot.height >= 0);
-        enemyShots = enemyShots.filter((shot) => shot.y <= height + 120);
-        powerUps = powerUps.filter((p) => p.y <= height + 80);
-    }
-
-    function checkHighScore() {
-        if (score > highScore) {
-            setHighScore(score);
-        }
-    }
-
-    function destroy() {
-        window.removeEventListener("blur", handleWindowBlur);
-        detachKeyboard();
-        startButton.removeEventListener("click", startGame);
-        pauseButton.removeEventListener("click", handlePauseClick);
-        difficultySelect.removeEventListener("change", handleDifficultyChange);
-        fullscreenButton.removeEventListener("click", toggleFullscreen);
-        audio.dispose();
-        document.removeEventListener("pointerdown", pointerUnlock);
-        document.removeEventListener("keydown", keyUnlock);
-    }
-
-    function resize(newWidth, newHeight, devicePixelRatio = 1) {
-        width = newWidth;
-        height = newHeight;
-        canvas.width = newWidth * devicePixelRatio;
-        canvas.height = newHeight * devicePixelRatio;
-        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-        stars = createStars(newWidth, newHeight);
-        background = createBackground(newWidth, newHeight);
-        resetPlayerPosition(player, newWidth, newHeight);
-        invaders.forEach((inv) => {
-            inv.baseY = inv.y;
+    updateBombs(delta) {
+        const remaining = [];
+        this.entities.bombs.forEach((bomb) => {
+            bomb.position.y += bomb.velocity.y * delta;
+            if (bomb.position.y < this.bounds.bottom - 10) {
+                this.scene.remove(bomb.mesh);
+                return;
+            }
+            if (aabbCollide(bomb, this.player)) {
+                this.scene.remove(bomb.mesh);
+                this.hitPlayer();
+                return;
+            }
+            remaining.push(bomb);
         });
-        if (boss) {
-            boss.x = Math.min(Math.max(60, boss.x), newWidth - boss.width - 60);
-        }
-        drawScene(ctx, buildRenderState());
+        this.entities.bombs = remaining;
     }
 
-    function togglePause(forceState) {
-        if (!running) {
+    updatePowerups(delta) {
+        const remaining = [];
+        this.entities.powerups.forEach((powerup) => {
+            powerup.position.y -= POWERUP_FALL_SPEED * delta;
+            if (powerup.position.y < this.bounds.bottom - 6) {
+                this.scene.remove(powerup.mesh);
+                return;
+            }
+            if (aabbCollide(powerup, this.player)) {
+                this.applyPowerup(powerup.type);
+                this.scene.remove(powerup.mesh);
+                return;
+            }
+            remaining.push(powerup);
+        });
+        this.entities.powerups = remaining;
+    }
+
+    updateEffects(delta) {
+        const keep = [];
+        this.effects.forEach((effect) => {
+            effect.ttl -= delta;
+            if (effect.ttl <= 0) {
+                this.scene.remove(effect.mesh);
+                return;
+            }
+            effect.mesh.material.opacity = effect.ttl / effect.max;
+            keep.push(effect);
+        });
+        this.effects = keep;
+    }
+
+    handleInvaderDestroyed(invader) {
+        this.score += invader.score;
+        const powerup = rollPowerup();
+        if (powerup && Math.random() < 0.5) {
+            const mesh = createRectMesh(5, 3, COLORS.powerups[powerup.key]);
+            mesh.position.copy(invader.position);
+            this.scene.add(mesh);
+            this.entities.powerups.push({
+                mesh,
+                size: { w: 5, h: 3 },
+                position: mesh.position,
+                type: powerup
+            });
+        }
+        this.scene.remove(invader.mesh);
+        this.entities.invaders = this.entities.invaders.filter((i) => i !== invader);
+    }
+
+    applyPowerup(powerup) {
+        switch (powerup.key) {
+            case "shield":
+                this.shield = clamp(this.shield + 1, 0, SHIELD_MAX);
+                this.statusCallback("Shield boosted. Tanks, engage!");
+                break;
+            case "rapid":
+                this.powerTimers.rapid = powerup.duration;
+                this.statusCallback("Rapid fire online.");
+                break;
+            case "spread":
+                this.powerTimers.spread = powerup.duration;
+                this.statusCallback("Spread shot active.");
+                break;
+            default:
+                break;
+        }
+    }
+
+    checkWaveClear() {
+        if (this.entities.invaders.length > 0) return;
+        this.wave += 1;
+        this.statusCallback(`Wave ${this.wave} ready. Invaders incoming!`);
+        this.spawnWave();
+    }
+
+    hitPlayer() {
+        if (this.shield > 0) {
+            this.shield -= 1;
+            this.statusCallback("Shield absorbed the hit.");
             return;
         }
-        const nextState = typeof forceState === "boolean" ? forceState : !paused;
-        if (nextState === paused) {
-            return;
-        }
-        paused = nextState;
-        pauseButton.setAttribute("aria-pressed", String(paused));
-        pauseButton.textContent = paused ? "Resume" : "Pause";
-        statusMessage.textContent = paused ? "Paused." : "Back to the fight!";
-        if (!paused) {
-            lastTimestamp = performance.now();
+        this.lives -= 1;
+        this.statusCallback(`Hull breach! Lives remaining: ${this.lives}`);
+        if (this.lives <= 0) {
+            this.endGame();
+        } else {
+            this.player.position.x = 0;
+            this.fireTimer = 0.5;
         }
     }
 
-    return { destroy, resize };
+    endGame() {
+        this.running = false;
+        this.paused = true;
+        this.highScore = Math.max(this.highScore, this.score);
+        localStorage.setItem("space-invaders-highscore", this.highScore.toString());
+        this.statusCallback("Mission failed. Hit Start to relaunch.");
+        this.updateHud();
+    }
+
+    spawnHitEffect(position, color) {
+        const mesh = createRectMesh(6, 6, color);
+        mesh.position.copy(position);
+        mesh.material.transparent = true;
+        mesh.material.opacity = 0.8;
+        this.scene.add(mesh);
+        this.effects.push({ mesh, ttl: 0.25, max: 0.25 });
+    }
+
+    updateHud() {
+        this.hud.scoreValue.textContent = Math.floor(this.score).toString();
+        this.hud.waveValue.textContent = this.wave.toString();
+        this.hud.livesValue.textContent = this.lives.toString();
+        this.hud.shieldValue.textContent = this.shield.toString();
+        this.hud.highScoreValue.textContent = this.highScore.toString();
+        const active = [];
+        if (this.powerTimers.rapid > 0) active.push(`Rapid (${this.powerTimers.rapid.toFixed(0)}s)`);
+        if (this.powerTimers.spread > 0) active.push(`Spread (${this.powerTimers.spread.toFixed(0)}s)`);
+        this.hud.powerUpReadout.textContent = active.length ? active.join(" · ") : "None";
+    }
+
+    togglePause() {
+        if (!this.running) return;
+        this.paused = !this.paused;
+        this.statusCallback(this.paused ? "Paused" : "Resumed");
+    }
+
+    isPaused() {
+        return this.paused;
+    }
+
+    isRunning() {
+        return this.running;
+    }
+
+    destroy() {
+        this.running = false;
+        window.removeEventListener("resize", this.resize);
+        this.renderer.dispose();
+        this.scene.clear();
+    }
 }

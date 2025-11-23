@@ -1,107 +1,89 @@
 import { createSpaceInvadersGame } from "./src/game.js";
+import { InputManager } from "./src/controls.js";
 
 let gameHandle = null;
-let resizeHandler = null;
-let fullscreenHandler = null;
-let fullscreenToggleHandler = null;
+let input = null;
+
+function setStatus(message) {
+    const statusMessage = document.getElementById("status-message");
+    if (statusMessage) {
+        statusMessage.textContent = message;
+    }
+}
+
+function getHudElements() {
+    return {
+        scoreValue: document.getElementById("score-value"),
+        livesValue: document.getElementById("lives-value"),
+        waveValue: document.getElementById("wave-value"),
+        highScoreValue: document.getElementById("highscore-value"),
+        shieldValue: document.getElementById("shield-value"),
+        powerUpReadout: document.getElementById("powerup-readout")
+    };
+}
+
+function hookButtons(game) {
+    const pauseButton = document.getElementById("pause-game");
+    const mobilePause = document.getElementById("mobile-pause");
+
+    const updatePauseState = () => {
+        const paused = game.isPaused();
+        pauseButton.textContent = paused ? "Resume" : "Pause";
+        pauseButton.setAttribute("aria-pressed", paused ? "true" : "false");
+        mobilePause.textContent = paused ? "▶" : "II";
+    };
+
+    const toggle = () => {
+        if (!game.isRunning()) return;
+        game.togglePause();
+        updatePauseState();
+    };
+
+    pauseButton.addEventListener("click", toggle);
+    mobilePause.addEventListener("click", toggle);
+
+    return updatePauseState;
+}
 
 export function init() {
     const canvas = document.getElementById("game-canvas");
     const startButton = document.getElementById("start-game");
     const pauseButton = document.getElementById("pause-game");
     const difficultySelect = document.getElementById("difficulty-select");
-    const scoreValue = document.getElementById("score-value");
-    const livesValue = document.getElementById("lives-value");
-    const waveValue = document.getElementById("wave-value");
-    const highScoreValue = document.getElementById("highscore-value");
-    const shieldValue = document.getElementById("shield-value");
-    const powerUpReadout = document.getElementById("powerup-readout");
-    const statusMessage = document.getElementById("status-message");
-    const fullscreenButton = document.getElementById("fullscreen-toggle");
+    const hud = getHudElements();
 
-    if (
-        !canvas ||
-        !startButton ||
-        !pauseButton ||
-        !difficultySelect ||
-        !scoreValue ||
-        !livesValue ||
-        !waveValue ||
-        !highScoreValue ||
-        !shieldValue ||
-        !powerUpReadout ||
-        !statusMessage ||
-        !fullscreenButton
-    ) {
-        console.warn("Space Invaders: required UI elements missing; aborting init.");
-        return;
-    }
+    input = new InputManager();
+    const touchButtons = Array.from(document.querySelectorAll(".touch-btn"));
+    input.bindButtons(touchButtons);
 
-    destroyCurrentGame();
+    gameHandle = createSpaceInvadersGame(canvas, hud, input, setStatus);
 
-    gameHandle = createSpaceInvadersGame({
-        canvas,
-        startButton,
-        pauseButton,
-        fullscreenButton,
-        difficultySelect,
-        hud: { scoreValue, livesValue, waveValue, highScoreValue, shieldValue, powerUpReadout },
-        statusMessage
+    const updatePauseState = hookButtons(gameHandle);
+
+    const startGame = () => {
+        gameHandle.start(difficultySelect.value);
+        pauseButton.disabled = false;
+        updatePauseState();
+    };
+
+    startButton.addEventListener("click", startGame);
+    window.addEventListener("blur", () => {
+        if (gameHandle && gameHandle.isRunning() && !gameHandle.isPaused()) {
+            gameHandle.togglePause();
+            updatePauseState();
+        }
     });
-
-    const applyResize = () => {
-        if (!gameHandle) {
-            return;
-        }
-        const dpr = window.devicePixelRatio || 1;
-        gameHandle.resize(window.innerWidth, window.innerHeight, dpr);
-    };
-
-    resizeHandler = applyResize;
-    fullscreenHandler = () => {
-        const isFullscreen = Boolean(document.fullscreenElement);
-        fullscreenButton.setAttribute("aria-pressed", String(isFullscreen));
-        fullscreenButton.textContent = isFullscreen ? "Windowed" : "Fullscreen";
-        applyResize();
-    };
-    fullscreenToggleHandler = () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen?.().catch(() => {
-                statusMessage.textContent = "Fullscreen request blocked.";
-            });
-        } else {
-            document.exitFullscreen?.().catch(() => {
-                statusMessage.textContent = "Could not exit fullscreen.";
-            });
-        }
-    };
-
-    window.addEventListener("resize", resizeHandler);
-    document.addEventListener("fullscreenchange", fullscreenHandler);
-    fullscreenButton.addEventListener("click", fullscreenToggleHandler);
-
-    applyResize();
 }
 
-function destroyCurrentGame() {
-    if (resizeHandler) {
-        window.removeEventListener("resize", resizeHandler);
-        resizeHandler = null;
+export function destroyCurrentGame() {
+    if (input) {
+        input.destroy();
+        input = null;
     }
-    if (fullscreenHandler) {
-        document.removeEventListener("fullscreenchange", fullscreenHandler);
-        fullscreenHandler = null;
-    }
-    const fullscreenButton = document.getElementById("fullscreen-toggle");
-    if (fullscreenButton && fullscreenToggleHandler) {
-        fullscreenButton.removeEventListener("click", fullscreenToggleHandler);
-        fullscreenToggleHandler = null;
-    }
-
-    if (gameHandle && typeof gameHandle.destroy === "function") {
+    if (gameHandle) {
         gameHandle.destroy();
+        gameHandle = null;
     }
-    gameHandle = null;
 }
 
 if (document.readyState === "loading") {
