@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orb Collector</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg1: #08111f;
+      --bg2: #0d1d33;
+      --panel: rgba(7, 15, 28, 0.78);
+      --text: #e8f2ff;
+      --accent: #6be7ff;
+      --danger: #ff6b8b;
+      --good: #7dffa1;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at top, #17345f 0%, transparent 40%),
+        linear-gradient(180deg, var(--bg2), var(--bg1));
+      font-family: Inter, Arial, sans-serif;
+      color: var(--text);
+    }
+    .wrap {
+      width: min(92vw, 920px);
+    }
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      padding: 14px 16px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 18px;
+      background: var(--panel);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    }
+    .stat {
+      min-width: 120px;
+    }
+    .label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      opacity: 0.7;
+    }
+    .value {
+      font-size: 28px;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+    .arena {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      overflow: hidden;
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at 50% 20%, rgba(107,231,255,0.13), transparent 35%),
+        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
+        #050b14;
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: inset 0 0 40px rgba(107,231,255,0.08), 0 24px 80px rgba(0,0,0,0.45);
+      cursor: crosshair;
+    }
+    .player, .orb, .hazard {
+      position: absolute;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .player {
+      width: 34px;
+      height: 34px;
+      background: radial-gradient(circle at 35% 35%, white, var(--accent) 48%, #1387b5 72%, #0b3247 100%);
+      box-shadow: 0 0 22px rgba(107,231,255,0.9);
+      z-index: 2;
+    }
+    .orb {
+      width: 22px;
+      height: 22px;
+      background: radial-gradient(circle at 35% 35%, white, var(--good) 45%, #2ea661 72%, #10311e 100%);
+      box-shadow: 0 0 18px rgba(125,255,161,0.75);
+    }
+    .hazard {
+      width: 26px;
+      height: 26px;
+      background: radial-gradient(circle at 35% 35%, white, var(--danger) 40%, #b52455 72%, #3b0819 100%);
+      box-shadow: 0 0 16px rgba(255,107,139,0.75);
+    }
+    .message {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 24px;
+      background: linear-gradient(180deg, rgba(2,8,16,0.45), rgba(2,8,16,0.8));
+      z-index: 3;
+    }
+    .card {
+      max-width: 420px;
+      padding: 24px;
+      border-radius: 22px;
+      background: rgba(7, 15, 28, 0.84);
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: 0 18px 60px rgba(0,0,0,0.4);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 5vw, 42px);
+    }
+    p {
+      margin: 0 0 18px;
+      line-height: 1.5;
+      opacity: 0.9;
+    }
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-size: 16px;
+      font-weight: 700;
+      background: linear-gradient(180deg, #8ff3ff, #46cfe7);
+      color: #04111b;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(70,207,231,0.35);
+    }
+    .foot {
+      margin-top: 12px;
+      font-size: 14px;
+      opacity: 0.75;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hud">
+      <div class="stat"><div class="label">Score</div><div class="value" id="score">0</div></div>
+      <div class="stat"><div class="label">Shield</div><div class="value" id="lives">3</div></div>
+      <div class="stat"><div class="label">Time</div><div class="value" id="time">30</div></div>
+      <div class="stat"><div class="label">Best</div><div class="value" id="best">0</div></div>
+    </div>
+    <div class="arena" id="arena">
+      <div class="player" id="player"></div>
+      <div class="message" id="overlay">
+        <div class="card">
+          <h1>Orb Collector</h1>
+          <p>Move your glowing drone with the mouse or your finger. Collect green energy orbs, avoid red hazards, and survive the full 30 seconds.</p>
+          <button id="startBtn">Start run</button>
+        </div>
+      </div>
+    </div>
+    <div class="foot">Tiny browser game test build — perfect for checking GitHub sync and deploy flow.</div>
+  </div>
+
+  <script>
+    const arena = document.getElementById('arena');
+    const player = document.getElementById('player');
+    const overlay = document.getElementById('overlay');
+    const startBtn = document.getElementById('startBtn');
+    const scoreEl = document.getElementById('score');
+    const livesEl = document.getElementById('lives');
+    const timeEl = document.getElementById('time');
+    const bestEl = document.getElementById('best');
+
+    let score = 0;
+    let lives = 3;
+    let timeLeft = 30;
+    let running = false;
+    let best = Number(localStorage.getItem('orb-collector-best') || 0);
+    let items = [];
+    let spawnTimer = 0;
+    let lastFrame = 0;
+    let countdownTimer = 0;
+    const playerPos = { x: 50, y: 50 };
+    bestEl.textContent = best;
+
+    function setPlayerPosition(clientX, clientY) {
+      const rect = arena.getBoundingClientRect();
+      const x = ((clientX - rect.left) / rect.width) * 100;
+      const y = ((clientY - rect.top) / rect.height) * 100;
+      playerPos.x = Math.max(3, Math.min(97, x));
+      playerPos.y = Math.max(4, Math.min(96, y));
+      player.style.left = playerPos.x + '%';
+      player.style.top = playerPos.y + '%';
+    }
+
+    arena.addEventListener('mousemove', (e) => {
+      if (running) setPlayerPosition(e.clientX, e.clientY);
+    });
+    arena.addEventListener('touchmove', (e) => {
+      if (!running) return;
+      const touch = e.touches[0];
+      if (touch) setPlayerPosition(touch.clientX, touch.clientY);
+      e.preventDefault();
+    }, { passive: false });
+
+    function spawn(type) {
+      const el = document.createElement('div');
+      el.className = type;
+      arena.appendChild(el);
+      const item = {
+        type,
+        el,
+        x: 8 + Math.random() * 84,
+        y: -6,
+        speed: (type === 'orb' ? 14 : 18) + Math.random() * 14,
+      };
+      items.push(item);
+      renderItem(item);
+    }
+
+    function renderItem(item) {
+      item.el.style.left = item.x + '%';
+      item.el.style.top = item.y + '%';
+    }
+
+    function resetGame() {
+      score = 0;
+      lives = 3;
+      timeLeft = 30;
+      scoreEl.textContent = score;
+      livesEl.textContent = lives;
+      timeEl.textContent = timeLeft;
+      items.forEach(item => item.el.remove());
+      items = [];
+      spawnTimer = 0;
+      countdownTimer = 0;
+      setPlayerPosition(arena.getBoundingClientRect().left + arena.clientWidth / 2, arena.getBoundingClientRect().top + arena.clientHeight * 0.8);
+    }
+
+    function endGame() {
+      running = false;
+      if (score > best) {
+        best = score;
+        localStorage.setItem('orb-collector-best', String(best));
+        bestEl.textContent = best;
+      }
+      overlay.innerHTML = `
+        <div class="card">
+          <h1>Run complete</h1>
+          <p>You scored <strong>${score}</strong>. ${lives > 0 ? 'Nice work, captain.' : 'Your shields got cooked.'}</p>
+          <button id="restartBtn">Play again</button>
+        </div>`;
+      overlay.hidden = false;
+      document.getElementById('restartBtn').addEventListener('click', startGame);
+    }
+
+    function collision(item) {
+      const dx = item.x - playerPos.x;
+      const dy = item.y - playerPos.y;
+      return Math.hypot(dx, dy) < 5.8;
+    }
+
+    function update(dt) {
+      spawnTimer += dt;
+      countdownTimer += dt;
+      const spawnInterval = Math.max(0.28, 0.75 - (30 - timeLeft) * 0.012);
+      if (spawnTimer >= spawnInterval) {
+        spawn(Math.random() < 0.68 ? 'orb' : 'hazard');
+        spawnTimer = 0;
+      }
+      if (countdownTimer >= 1) {
+        timeLeft -= 1;
+        countdownTimer = 0;
+        timeEl.textContent = timeLeft;
+        if (timeLeft <= 0) endGame();
+      }
+
+      items.forEach(item => {
+        item.y += item.speed * dt;
+        renderItem(item);
+      });
+
+      items = items.filter(item => {
+        if (collision(item)) {
+          if (item.type === 'orb') {
+            score += 10;
+            scoreEl.textContent = score;
+          } else {
+            lives -= 1;
+            livesEl.textContent = lives;
+            arena.animate([
+              { transform: 'translateX(0px)' },
+              { transform: 'translateX(-8px)' },
+              { transform: 'translateX(8px)' },
+              { transform: 'translateX(0px)' }
+            ], { duration: 180 });
+            if (lives <= 0) {
+              item.el.remove();
+              endGame();
+              return false;
+            }
+          }
+          item.el.remove();
+          return false;
+        }
+        if (item.y > 106) {
+          item.el.remove();
+          return false;
+        }
+        return true;
+      });
+    }
+
+    function loop(ts) {
+      if (!running) return;
+      if (!lastFrame) lastFrame = ts;
+      const dt = Math.min(0.033, (ts - lastFrame) / 1000);
+      lastFrame = ts;
+      update(dt);
+      requestAnimationFrame(loop);
+    }
+
+    function startGame() {
+      overlay.hidden = true;
+      resetGame();
+      running = true;
+      lastFrame = 0;
+      requestAnimationFrame(loop);
+    }
+
+    startBtn.addEventListener('click', startGame);
+    resetGame();
+  </script>
+</body>
+</html>
